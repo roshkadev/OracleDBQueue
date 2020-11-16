@@ -2,13 +2,22 @@ package com.roshka.oracledbqueue.config;
 
 public class OracleDBQueueConfig {
 
-    private String table;
+    private OracleDataSourceConfig dataSourceConfig;
+    private String listenerQuery;
 
-    public String getTable() {
-        return table;
+    public OracleDataSourceConfig getDataSourceConfig() {
+        return dataSourceConfig;
     }
 
-    public void setTable(String table) {
-        this.table = table;
+    public void setDataSourceConfig(OracleDataSourceConfig dataSourceConfig) {
+        this.dataSourceConfig = dataSourceConfig;
+    }
+
+    public String getListenerQuery() {
+        return listenerQuery;
+    }
+
+    public void setListenerQuery(String listenerQuery) {
+        this.listenerQuery = listenerQuery;
     }
 }
