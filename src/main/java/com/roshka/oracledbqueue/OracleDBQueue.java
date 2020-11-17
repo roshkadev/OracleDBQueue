@@ -7,6 +7,7 @@ import com.roshka.oracledbqueue.exception.ErrorConstants;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import com.roshka.oracledbqueue.listener.OracleDBQueueListener;
 import com.roshka.oracledbqueue.util.OracleDBUtil;
+import com.roshka.oracledbqueue.util.OracleRegistrationUtil;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
 import oracle.jdbc.datasource.OracleDataSource;
@@ -15,21 +16,53 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-public class OracleDBQueue {
+public class OracleDBQueue implements Runnable {
 
     private static Logger logger = LoggerFactory.getLogger(OracleDBQueue.class);
+
+
+    @Override
+    public void run() {
+
+        try {
+            logger.info("Starting Oracle's DB QUEUE");
+
+            start();
+
+            while(status != OracleDBQueueStatus.STOP_REQUESTED && status != OracleDBQueueStatus.ENDED) {
+                Thread.sleep(20000);
+            }
+        } catch (InterruptedException e) {
+            logger.error("Thread was interrupted, cleaning up and exiting");
+        } catch (OracleDBQueueException e) {
+            logger.error("OracleDBQueue could not start. Giving up...", e);
+        } finally {
+            try {
+                logger.info("Going to STOP");
+                stop();
+                logger.info("STOPPED");
+            } catch (OracleDBQueueException e) {
+                logger.error("Failure while stopping QUEUE", e);
+            }
+        }
+        logger.info("Bye, bye now");
+    }
 
     public enum OracleDBQueueStatus {
         CREATED,
         STARTING,
         START_FAILURE,
         RUNNING,
+        STOP_REQUESTED,
         ENDED
     }
 
@@ -58,6 +91,10 @@ public class OracleDBQueue {
         Properties prop = new Properties();
         prop.setProperty(OracleConnection.DCN_NOTIFY_ROWIDS,"true");
         prop.setProperty(OracleConnection.DCN_QUERY_CHANGE_NOTIFICATION,"true");
+        prop.setProperty(OracleConnection.DCN_IGNORE_UPDATEOP,"true");
+        prop.setProperty(OracleConnection.DCN_IGNORE_DELETEOP,"true");
+        prop.setProperty(OracleConnection.DCN_BEST_EFFORT,"true");
+
 
         Connection conn = null;
         OracleConnection oracleConnection = null;
@@ -83,8 +120,12 @@ public class OracleDBQueue {
             logger.debug("Got connection");
             oracleConnection = (OracleConnection) conn;
 
+            // unregister previous change notifications for user
+            OracleRegistrationUtil.unregisterPreviousNotificationsForUser(oracleConnection, config.getTableName());
+
             logger.debug("Registering database change notification");
             dcr = oracleConnection.registerDatabaseChangeNotification(prop);
+            logger.info("Registered with id: " + dcr.getRegId());
             logger.debug("Adding listener");
             dcr.addListener(new OracleDBQueueListener(config, dataSource));
 
@@ -99,7 +140,7 @@ public class OracleDBQueue {
             {}
             String[] tableNames = dcr.getTables();
             for(int i=0;i<tableNames.length;i++)
-                logger.debug(String.format("Table %s is included in the registration", tableNames[i]));
+                logger.info(String.format("Table %s is included in the registration", tableNames[i]));
             rs.close();
             stmt.close();
 
@@ -121,12 +162,14 @@ public class OracleDBQueue {
             }
 
         } finally {
+            logger.info("Closing connection");
             OracleDBUtil.closeConnectionIgnoreException(oracleConnection);
+            logger.info("Connection closed");
         }
 
     }
 
-    public void stop()
+    private void stop()
             throws OracleDBQueueException
     {
 
@@ -144,6 +187,12 @@ public class OracleDBQueue {
             }
         }
 
+        status = OracleDBQueueStatus.ENDED;
+    }
+
+    public void stopRequest()
+    {
+        status = OracleDBQueueStatus.STOP_REQUESTED;
     }
 
     public OracleDBQueueConfig getConfig() {
@@ -154,20 +203,22 @@ public class OracleDBQueue {
         return status;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         System.out.println("Hello, world");
 
+        Properties properties = new Properties();
+        properties.load(new FileReader("conf/ccp.properties"));
 
-        OracleDataSourceConfig oracleDataSourceConfig = new OracleDataSourceConfig();
-        oracleDataSourceConfig.setJdbcURL("jdbc:oracle:thin:@192.168.16.67:1521:XE");
-        oracleDataSourceConfig.setJdbcUser("ccp");
-        oracleDataSourceConfig.setJdbcUser("pqntslc");
-
-        OracleDBQueueConfig oracleDBQueueConfig = new OracleDBQueueConfig();
+        final OracleDataSourceConfig oracleDataSourceConfig = OracleDataSourceConfig.loadFromProperties(properties);
+        final OracleDBQueueConfig oracleDBQueueConfig = OracleDBQueueConfig.loadFromProperties(properties);
         oracleDBQueueConfig.setDataSourceConfig(oracleDataSourceConfig);
-        oracleDBQueueConfig.setListenerQuery("select * from ");
 
         OracleDBQueue oracleDBQueue = new OracleDBQueue(oracleDBQueueConfig);
+
+        final Thread thread = new Thread(oracleDBQueue);
+        thread.start();
+
+        thread.join();
     }
 
 }

@@ -225,4 +225,23 @@ public class OracleDataSourceConfig {
         return oracleDataSourceConfig;
     }
 
+    @Override
+    public String toString() {
+        return "OracleDataSourceConfig{" +
+                "jdbcURL='" + jdbcURL + '\'' +
+                ", jdbcUser='" + jdbcUser + '\'' +
+                ", jdbcPassword='" + "****" + '\'' +
+                ", initialPoolSize=" + initialPoolSize +
+                ", maxPoolSize=" + maxPoolSize +
+                ", validateConnectionOnBorrow=" + validateConnectionOnBorrow +
+                ", connectionValidationTimeout=" + connectionValidationTimeout +
+                ", sqlForValidateConnection='" + sqlForValidateConnection + '\'' +
+                ", connectionPoolName='" + connectionPoolName + '\'' +
+                ", abandonedConnectionTimeout=" + abandonedConnectionTimeout +
+                ", inactiveConnectionTimeout=" + inactiveConnectionTimeout +
+                ", queryTimeout=" + queryTimeout +
+                ", loginTimeout=" + loginTimeout +
+                ", connectionWaitTimeout=" + connectionWaitTimeout +
+                '}';
+    }
 }
