@@ -16,7 +16,7 @@ public class OracleDataSourceUtil {
         PoolDataSource pds = PoolDataSourceFactory.getPoolDataSource();
         pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
 
-        // connection credentiales
+        // connection credentials
         pds.setURL(config.getJdbcURL());
         pds.setUser(config.getJdbcUser());
         pds.setPassword(config.getJdbcPassword());
@@ -25,14 +25,30 @@ public class OracleDataSourceUtil {
         pds.setInitialPoolSize(config.getInitialPoolSize());
         pds.setMaxPoolSize(config.getMaxPoolSize());
         pds.setValidateConnectionOnBorrow(config.isValidateConnectionOnBorrow());
-        pds.setConnectionValidationTimeout(config.getConnectionValidationTimeout());
+
+        if (config.getConnectionValidationTimeout() != null)
+            pds.setConnectionValidationTimeout(config.getConnectionValidationTimeout());
+
         pds.setSQLForValidateConnection(config.getSqlForValidateConnection());
-        pds.setConnectionPoolName(config.getConnectionPoolName());
-        pds.setAbandonedConnectionTimeout(config.getAbandonedConnectionTimeout());
-        pds.setInactiveConnectionTimeout(config.getInactiveConnectionTimeout());
-        pds.setQueryTimeout(config.getQueryTimeout());
-        pds.setLoginTimeout(config.getLoginTimeout());
-        pds.setConnectionWaitTimeout(config.getConnectionWaitTimeout());
+
+        if (config.getConnectionPoolName() != null)
+            pds.setConnectionPoolName(config.getConnectionPoolName());
+
+
+        if (config.getAbandonedConnectionTimeout() != null)
+            pds.setAbandonedConnectionTimeout(config.getAbandonedConnectionTimeout());
+
+        if (config.getInactiveConnectionTimeout() != null)
+            pds.setInactiveConnectionTimeout(config.getInactiveConnectionTimeout());
+
+        if (config.getQueryTimeout() != null)
+            pds.setQueryTimeout(config.getQueryTimeout());
+
+        if (config.getLoginTimeout() != null)
+            pds.setLoginTimeout(config.getLoginTimeout());
+
+        if (config.getConnectionWaitTimeout() != null)
+            pds.setConnectionWaitTimeout(config.getConnectionWaitTimeout());
 
         return pds;
 

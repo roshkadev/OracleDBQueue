@@ -1,6 +1,7 @@
 package com.roshka.oracledbqueue;
 
 import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
+import com.roshka.oracledbqueue.config.OracleDataSourceConfig;
 import com.roshka.oracledbqueue.datasource.OracleDataSourceUtil;
 import com.roshka.oracledbqueue.exception.ErrorConstants;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
@@ -151,6 +152,22 @@ public class OracleDBQueue {
 
     public OracleDBQueueStatus getStatus() {
         return status;
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Hello, world");
+
+
+        OracleDataSourceConfig oracleDataSourceConfig = new OracleDataSourceConfig();
+        oracleDataSourceConfig.setJdbcURL("jdbc:oracle:thin:@192.168.16.67:1521:XE");
+        oracleDataSourceConfig.setJdbcUser("ccp");
+        oracleDataSourceConfig.setJdbcUser("pqntslc");
+
+        OracleDBQueueConfig oracleDBQueueConfig = new OracleDBQueueConfig();
+        oracleDBQueueConfig.setDataSourceConfig(oracleDataSourceConfig);
+        oracleDBQueueConfig.setListenerQuery("select * from ");
+
+        OracleDBQueue oracleDBQueue = new OracleDBQueue(oracleDBQueueConfig);
     }
 
 }

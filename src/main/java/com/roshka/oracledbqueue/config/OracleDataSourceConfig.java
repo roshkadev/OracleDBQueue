@@ -1,35 +1,65 @@
 package com.roshka.oracledbqueue.config;
 
+import com.roshka.oracledbqueue.util.PropertiesUtil;
+
+import java.util.Properties;
+
 public class OracleDataSourceConfig {
 
+    public static final String CONFKEY_PREFIX = "odbq.ds";
+
     // Connection Credentials
+    public static final String CONFKEY_JDBC_URL = String.format("%s.jdbc_url", CONFKEY_PREFIX);
     private String jdbcURL;
+    public static final String CONFKEY_JDBC_USER = String.format("%s.jdbc_user", CONFKEY_PREFIX);
     private String jdbcUser;
+    public static final String CONFKEY_JDBC_PASSWORD = String.format("%s.jdbc_password", CONFKEY_PREFIX);
     private String jdbcPassword;
 
     // Connection Pool
+    public static final String CONFKEY_INITIAL_POOL_SIZE = String.format("%s.initial_pool_size", CONFKEY_PREFIX);
     public static final int DEFAULT_INITIAL_POOL_SIZE = 3;
     private int initialPoolSize = DEFAULT_INITIAL_POOL_SIZE;
+
+    public static final String CONFKEY_MAX_POOL_SIZE = String.format("%s.max_pool_size", CONFKEY_PREFIX);
     public static final int DEFAULT_MAX_POOL_SIZE = 10;
     private int maxPoolSize = DEFAULT_MAX_POOL_SIZE;
+
+    public static final String CONFKEY_VALIDATE_CONNECTION_ON_BORROW = String.format("%s.validate_connection_on_borrow", CONFKEY_PREFIX);
     public static final boolean DEFAULT_VALIDATE_CONNECTION_ON_BORROW = true;
     private boolean validateConnectionOnBorrow = DEFAULT_VALIDATE_CONNECTION_ON_BORROW;
-    public static final int DEFAULT_CONNECTION_VALIDATION_TIMEOUT = 10;
-    private int connectionValidationTimeout = DEFAULT_CONNECTION_VALIDATION_TIMEOUT;
+
+    public static final String CONFKEY_CONNECTION_VALIDATION_TIMEOUT = String.format("%s.connection_validation_timeout", CONFKEY_PREFIX);
+    public static final Integer DEFAULT_CONNECTION_VALIDATION_TIMEOUT = null;
+    private Integer connectionValidationTimeout = DEFAULT_CONNECTION_VALIDATION_TIMEOUT;
+
+    public static final String CONFKEY_SQL_FOR_VALIDATE_CONNECTION = String.format("%s.sql_for_validate_connection", CONFKEY_PREFIX);
     public static final String DEFAULT_SQL_FOR_VALIDATE_CONNECTION = "select 1 from dual";
     private String sqlForValidateConnection = DEFAULT_SQL_FOR_VALIDATE_CONNECTION;
+
+    public static final String CONFKEY_CONNECTION_POOL_NAME = String.format("%s.connection_pool_name", CONFKEY_PREFIX);
     public static final String DEFAULT_CONNECTION_POOL_NAME = "OracleDBQueuePool";
     private String connectionPoolName = DEFAULT_CONNECTION_POOL_NAME;
-    public static final int DEFAULT_ABANDONED_CONNECTION_TIMEOUT = 10;
-    private int abandonedConnectionTimeout = DEFAULT_ABANDONED_CONNECTION_TIMEOUT;
-    public static final int DEFAULT_INACTIVE_CONNECTION_TIMEOUT = 10;
-    private int inactiveConnectionTimeout = DEFAULT_INACTIVE_CONNECTION_TIMEOUT;
-    public static final int DEFAULT_QUERY_TIMEOUT = 10;
-    private int queryTimeout = DEFAULT_QUERY_TIMEOUT;
-    public static final int DEFAULT_LOGIN_TIMEOUT = 10;
-    private int loginTimeout = DEFAULT_LOGIN_TIMEOUT;
-    public static final int DEFAULT_CONNECTION_WAIT_TIMEOUT = 10;
-    private int connectionWaitTimeout = DEFAULT_CONNECTION_WAIT_TIMEOUT;
+
+    public static final String CONFKEY_ABANDONED_CONNECTION_TIMEOUT = String.format("%s.abandoned_connection_timeout", CONFKEY_PREFIX);
+    public static final Integer DEFAULT_ABANDONED_CONNECTION_TIMEOUT = null;
+    private Integer abandonedConnectionTimeout = DEFAULT_ABANDONED_CONNECTION_TIMEOUT;
+
+    public static final String CONFKEY_INACTIVE_CONNECTION_TIMEOUT = String.format("%s.inactive_connection_timeout", CONFKEY_PREFIX);
+    public static final Integer DEFAULT_INACTIVE_CONNECTION_TIMEOUT = null;
+    private Integer inactiveConnectionTimeout = DEFAULT_INACTIVE_CONNECTION_TIMEOUT;
+
+    public static final String CONFKEY_QUERY_TIMEOUT = String.format("%s.query_timeout", CONFKEY_PREFIX);
+    public static final Integer DEFAULT_QUERY_TIMEOUT = null;
+    private Integer queryTimeout = DEFAULT_QUERY_TIMEOUT;
+
+    public static final String CONFKEY_LOGIN_TIMEOUT = String.format("%s.login_timeout", CONFKEY_PREFIX);
+    public static final Integer DEFAULT_LOGIN_TIMEOUT = null;
+    private Integer loginTimeout = DEFAULT_LOGIN_TIMEOUT;
+
+    public static final String CONFKEY_CONNECTION_WAIT_TIMEOUT = String.format("%s.connection_wait_timeout", CONFKEY_PREFIX);
+    public static final Integer DEFAULT_CONNECTION_WAIT_TIMEOUT = null;
+    private Integer connectionWaitTimeout = DEFAULT_CONNECTION_WAIT_TIMEOUT;
 
     public String getJdbcURL() {
         return jdbcURL;
@@ -79,11 +109,11 @@ public class OracleDataSourceConfig {
         this.validateConnectionOnBorrow = validateConnectionOnBorrow;
     }
 
-    public int getConnectionValidationTimeout() {
+    public Integer getConnectionValidationTimeout() {
         return connectionValidationTimeout;
     }
 
-    public void setConnectionValidationTimeout(int connectionValidationTimeout) {
+    public void setConnectionValidationTimeout(Integer connectionValidationTimeout) {
         this.connectionValidationTimeout = connectionValidationTimeout;
     }
 
@@ -103,43 +133,96 @@ public class OracleDataSourceConfig {
         this.connectionPoolName = connectionPoolName;
     }
 
-    public int getAbandonedConnectionTimeout() {
+    public Integer getAbandonedConnectionTimeout() {
         return abandonedConnectionTimeout;
     }
 
-    public void setAbandonedConnectionTimeout(int abandonedConnectionTimeout) {
+    public void setAbandonedConnectionTimeout(Integer abandonedConnectionTimeout) {
         this.abandonedConnectionTimeout = abandonedConnectionTimeout;
     }
 
-    public int getInactiveConnectionTimeout() {
+    public Integer getInactiveConnectionTimeout() {
         return inactiveConnectionTimeout;
     }
 
-    public void setInactiveConnectionTimeout(int inactiveConnectionTimeout) {
+    public void setInactiveConnectionTimeout(Integer inactiveConnectionTimeout) {
         this.inactiveConnectionTimeout = inactiveConnectionTimeout;
     }
 
-    public int getQueryTimeout() {
+    public Integer getQueryTimeout() {
         return queryTimeout;
     }
 
-    public void setQueryTimeout(int queryTimeout) {
+    public void setQueryTimeout(Integer queryTimeout) {
         this.queryTimeout = queryTimeout;
     }
 
-    public int getLoginTimeout() {
+    public Integer getLoginTimeout() {
         return loginTimeout;
     }
 
-    public void setLoginTimeout(int loginTimeout) {
+    public void setLoginTimeout(Integer loginTimeout) {
         this.loginTimeout = loginTimeout;
     }
 
-    public int getConnectionWaitTimeout() {
+    public Integer getConnectionWaitTimeout() {
         return connectionWaitTimeout;
     }
 
-    public void setConnectionWaitTimeout(int connectionWaitTimeout) {
+    public void setConnectionWaitTimeout(Integer connectionWaitTimeout) {
         this.connectionWaitTimeout = connectionWaitTimeout;
     }
+
+    public static OracleDataSourceConfig loadFromProperties(Properties props)
+    {
+        OracleDataSourceConfig oracleDataSourceConfig = new OracleDataSourceConfig();
+
+        oracleDataSourceConfig.setJdbcURL(props.getProperty(CONFKEY_JDBC_URL));
+        oracleDataSourceConfig.setJdbcUser(props.getProperty(CONFKEY_JDBC_USER));
+        oracleDataSourceConfig.setJdbcPassword(props.getProperty(CONFKEY_JDBC_PASSWORD));
+
+        if (props.containsKey(CONFKEY_INITIAL_POOL_SIZE)) {
+            oracleDataSourceConfig.setInitialPoolSize(PropertiesUtil.getIntegerProperty(props, CONFKEY_INITIAL_POOL_SIZE));
+        }
+
+        if (props.containsKey(CONFKEY_MAX_POOL_SIZE)) {
+            oracleDataSourceConfig.setMaxPoolSize(PropertiesUtil.getIntegerProperty(props, CONFKEY_MAX_POOL_SIZE));
+        }
+
+        oracleDataSourceConfig.setValidateConnectionOnBorrow(Boolean.valueOf(props.getProperty(CONFKEY_VALIDATE_CONNECTION_ON_BORROW, "true")));
+
+        if (props.containsKey(CONFKEY_CONNECTION_VALIDATION_TIMEOUT)) {
+            oracleDataSourceConfig.setConnectionValidationTimeout(PropertiesUtil.getIntegerProperty(props, CONFKEY_CONNECTION_VALIDATION_TIMEOUT));
+        }
+
+        oracleDataSourceConfig.setSqlForValidateConnection(props.getProperty(CONFKEY_SQL_FOR_VALIDATE_CONNECTION, DEFAULT_SQL_FOR_VALIDATE_CONNECTION));
+
+
+        if (props.containsKey(CONFKEY_CONNECTION_POOL_NAME)) {
+            oracleDataSourceConfig.setConnectionPoolName(props.getProperty(CONFKEY_CONNECTION_POOL_NAME));
+        }
+
+        if (props.containsKey(CONFKEY_ABANDONED_CONNECTION_TIMEOUT)) {
+            oracleDataSourceConfig.setAbandonedConnectionTimeout(PropertiesUtil.getIntegerProperty(props, CONFKEY_ABANDONED_CONNECTION_TIMEOUT));
+        }
+
+        if (props.containsKey(CONFKEY_INACTIVE_CONNECTION_TIMEOUT)) {
+            oracleDataSourceConfig.setInactiveConnectionTimeout(PropertiesUtil.getIntegerProperty(props, CONFKEY_INACTIVE_CONNECTION_TIMEOUT));
+        }
+
+        if (props.containsKey(CONFKEY_QUERY_TIMEOUT)) {
+            oracleDataSourceConfig.setQueryTimeout(PropertiesUtil.getIntegerProperty(props, CONFKEY_QUERY_TIMEOUT));
+        }
+
+        if (props.containsKey(CONFKEY_LOGIN_TIMEOUT)) {
+            oracleDataSourceConfig.setLoginTimeout(PropertiesUtil.getIntegerProperty(props, CONFKEY_LOGIN_TIMEOUT));
+        }
+
+        if (props.containsKey(CONFKEY_CONNECTION_WAIT_TIMEOUT)) {
+            oracleDataSourceConfig.setConnectionWaitTimeout(PropertiesUtil.getIntegerProperty(props, CONFKEY_CONNECTION_WAIT_TIMEOUT));
+        }
+
+        return oracleDataSourceConfig;
+    }
+
 }
