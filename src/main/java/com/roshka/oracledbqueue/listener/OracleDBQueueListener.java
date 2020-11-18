@@ -40,10 +40,11 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
 
         // this is where tasks are going to be queued
         for (QueryChangeDescription queryChangeDescription : databaseChangeEvent.getQueryChangeDescription()) {
+
+            // only take into account QUERY CHANGE events
             if (queryChangeDescription.getQueryChangeEventType() == QueryChangeDescription.QueryChangeEventType.QUERYCHANGE) {
                 for (TableChangeDescription tableChangeDescription : queryChangeDescription.getTableChangeDescription()) {
-                    if (tableChangeDescription.getTableOperations().contains(TableChangeDescription.TableOperation.INSERT)) {
-                        logger.info(String.format("Processing [%s] operations for table [%s]", getOperationsString(tableChangeDescription.getTableOperations()), tableChangeDescription.getTableName()));
+                    if (tableChangeDescription.getTableName().equalsIgnoreCase(config.getTableName())) {
                         for (RowChangeDescription rowChangeDescription : tableChangeDescription.getRowChangeDescription()) {
                             if (rowChangeDescription.getRowOperation() == RowChangeDescription.RowOperation.INSERT) {
                                 logger.info("Processing: " + rowChangeDescription.getRowid().stringValue());
@@ -52,6 +53,7 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
                     }
                 }
             }
+
         }
 
 

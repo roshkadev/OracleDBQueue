@@ -9,20 +9,15 @@ import com.roshka.oracledbqueue.listener.OracleDBQueueListener;
 import com.roshka.oracledbqueue.util.OracleDBUtil;
 import com.roshka.oracledbqueue.util.OracleRegistrationUtil;
 import oracle.jdbc.OracleConnection;
-import oracle.jdbc.OracleStatement;
 import oracle.jdbc.datasource.OracleDataSource;
 import oracle.jdbc.dcn.DatabaseChangeRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.IOException;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Properties;
 
 public class OracleDBQueue implements Runnable {
@@ -87,15 +82,6 @@ public class OracleDBQueue implements Runnable {
         logger.info("Starting OracleDBQueue with config: " + config);
         status = OracleDBQueueStatus.STARTING;
 
-        logger.info("Setting up properties");
-        Properties prop = new Properties();
-        prop.setProperty(OracleConnection.DCN_NOTIFY_ROWIDS,"true");
-        prop.setProperty(OracleConnection.DCN_QUERY_CHANGE_NOTIFICATION,"true");
-        prop.setProperty(OracleConnection.DCN_IGNORE_UPDATEOP,"true");
-        prop.setProperty(OracleConnection.DCN_IGNORE_DELETEOP,"true");
-        prop.setProperty(OracleConnection.DCN_BEST_EFFORT,"true");
-
-
         Connection conn = null;
         OracleConnection oracleConnection = null;
 
@@ -123,28 +109,17 @@ public class OracleDBQueue implements Runnable {
             // unregister previous change notifications for user
             OracleRegistrationUtil.unregisterPreviousNotificationsForUser(oracleConnection, config.getTableName());
 
-            logger.debug("Registering database change notification");
-            dcr = oracleConnection.registerDatabaseChangeNotification(prop);
-            logger.info("Registered with id: " + dcr.getRegId());
-            logger.debug("Adding listener");
-            dcr.addListener(new OracleDBQueueListener(config, dataSource));
+            final OracleDBQueueListener oracleDBQueueListener = new OracleDBQueueListener(config, dataSource);
 
-            logger.debug("Running listener query");
+            logger.info("Setting up properties for listener");
+            Properties prop = new Properties();
+            prop.setProperty(OracleConnection.DCN_NOTIFY_ROWIDS,"true");
+            prop.setProperty(OracleConnection.DCN_QUERY_CHANGE_NOTIFICATION,"true");
+            prop.setProperty(OracleConnection.DCN_BEST_EFFORT,"true");
 
-            // second step: add objects in the registration:
-            Statement stmt = conn.createStatement();
-            // associate the statement with the registration:
-            ((OracleStatement)stmt).setDatabaseChangeRegistration(dcr);
-            ResultSet rs = stmt.executeQuery(config.getListenerQuery());
-            while (rs.next())
-            {}
-            String[] tableNames = dcr.getTables();
-            for(int i=0;i<tableNames.length;i++)
-                logger.info(String.format("Table %s is included in the registration", tableNames[i]));
-            rs.close();
-            stmt.close();
+            dcr = OracleRegistrationUtil.registerDatabaseChange(oracleConnection, oracleDBQueueListener, config.getTableName(), config.getListenerQuery(), prop);
 
-            logger.info("Listener STARTED successfully");
+            logger.info("Listener STARTED successfully with registration id: " + dcr.getRegId() + " - Setting status to RUNNING");
 
             status = OracleDBQueueStatus.RUNNING;
 
