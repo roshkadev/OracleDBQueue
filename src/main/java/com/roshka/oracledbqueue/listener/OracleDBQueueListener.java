@@ -1,25 +1,27 @@
 package com.roshka.oracledbqueue.listener;
 
 import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
+import com.roshka.oracledbqueue.OracleDBQueueCtx;
+import com.roshka.oracledbqueue.exception.OracleDBQueueException;
+import com.roshka.oracledbqueue.task.TaskManager;
+import com.roshka.oracledbqueue.util.OracleDBUtil;
 import oracle.jdbc.dcn.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.EnumSet;
 
 public class OracleDBQueueListener implements DatabaseChangeListener  {
     
     private static Logger logger = LoggerFactory.getLogger(OracleDBQueueListener.class);
+    private OracleDBQueueCtx ctx;
 
-    private OracleDBQueueConfig config;
-    private DataSource dataSource;
-
-
-    public OracleDBQueueListener(OracleDBQueueConfig config, DataSource dataSource)
+    public OracleDBQueueListener(OracleDBQueueCtx ctx)
     {
-        this.config = config;
-        this.dataSource = dataSource;
+        this.ctx = ctx;
     }
 
     private String getOperationsString(EnumSet<TableChangeDescription.TableOperation> tableOperations)
@@ -33,10 +35,31 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
         return sb.toString();
     }
 
+
+    private void processRowChange(RowChangeDescription rowChangeDescription) {
+
+        Connection connection = null;
+        final DataSource oracleDataSource = ctx.getDataSource();
+        try {
+            connection = oracleDataSource.getConnection();
+
+        } catch (SQLException e) {
+            logger.error("SQLException while trying to process row change");
+
+        } finally {
+            OracleDBUtil.closeConnectionIgnoreException(connection);
+        }
+
+
+    }
+
     @Override
     public void onDatabaseChangeNotification(DatabaseChangeEvent databaseChangeEvent) {
 
         logger.info(databaseChangeEvent.toString());
+        final OracleDBQueueConfig config = ctx.getConfig();
+        final DataSource dataSource = ctx.getDataSource();
+        final TaskManager taskManager = ctx.getTaskManager();
 
         // this is where tasks are going to be queued
         for (QueryChangeDescription queryChangeDescription : databaseChangeEvent.getQueryChangeDescription()) {
@@ -48,6 +71,11 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
                         for (RowChangeDescription rowChangeDescription : tableChangeDescription.getRowChangeDescription()) {
                             if (rowChangeDescription.getRowOperation() == RowChangeDescription.RowOperation.INSERT) {
                                 logger.info("Processing: " + rowChangeDescription.getRowid().stringValue());
+                                try {
+                                    taskManager.queueTask(rowChangeDescription.getRowid());
+                                } catch (OracleDBQueueException e) {
+                                    logger.error("Failure when attemting to QUEUE task: ", e.getCode() + "/" + e.getMessage());
+                                }
                             }
                         }
                     }

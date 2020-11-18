@@ -6,6 +6,7 @@ import com.roshka.oracledbqueue.datasource.OracleDataSourceUtil;
 import com.roshka.oracledbqueue.exception.ErrorConstants;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import com.roshka.oracledbqueue.listener.OracleDBQueueListener;
+import com.roshka.oracledbqueue.task.TaskManager;
 import com.roshka.oracledbqueue.util.OracleDBUtil;
 import com.roshka.oracledbqueue.util.OracleRegistrationUtil;
 import oracle.jdbc.OracleConnection;
@@ -14,7 +15,6 @@ import oracle.jdbc.dcn.DatabaseChangeRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.sql.DataSource;
 import java.io.FileReader;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -25,16 +25,41 @@ public class OracleDBQueue implements Runnable {
     private static Logger logger = LoggerFactory.getLogger(OracleDBQueue.class);
 
 
+    public enum OracleDBQueueStatus {
+        CREATED,
+        STARTING,
+        START_FAILURE,
+        RUNNING,
+        STOP_REQUESTED,
+        ENDED
+    }
+
+    private OracleDBQueueCtx ctx;
+
+    public OracleDBQueue(OracleDBQueueConfig config) {
+        this(config, null);
+    }
+
+    public OracleDBQueue(OracleDBQueueConfig config, OracleDataSource dataSource)
+    {
+        ctx = new OracleDBQueueCtx(this);
+        ctx.setConfig(config);
+        ctx.setDataSource(dataSource);
+        ctx.setStatus(OracleDBQueueStatus.CREATED);
+    }
+
     @Override
     public void run() {
 
         try {
             logger.info("Starting Oracle's DB QUEUE");
+            final OracleDBQueueConfig config = ctx.getConfig();
 
             start();
 
-            while(status != OracleDBQueueStatus.STOP_REQUESTED && status != OracleDBQueueStatus.ENDED) {
-                Thread.sleep(20000);
+            while(ctx.getStatus() != OracleDBQueueStatus.STOP_REQUESTED && ctx.getStatus() != OracleDBQueueStatus.ENDED) {
+                Thread.sleep(config.getAuxiliaryPollQueueInterval()*1000);
+                // call to run the query manually
             }
         } catch (InterruptedException e) {
             logger.error("Thread was interrupted, cleaning up and exiting");
@@ -52,85 +77,40 @@ public class OracleDBQueue implements Runnable {
         logger.info("Bye, bye now");
     }
 
-    public enum OracleDBQueueStatus {
-        CREATED,
-        STARTING,
-        START_FAILURE,
-        RUNNING,
-        STOP_REQUESTED,
-        ENDED
-    }
-
-    private OracleDBQueueConfig config;
-    private OracleDBQueueStatus status;
-
-    private DataSource dataSource;
-    private DatabaseChangeRegistration dcr = null;
-
-    public OracleDBQueue(OracleDBQueueConfig config) {
-        this(config, null);
-    }
-
-    public OracleDBQueue(OracleDBQueueConfig config, OracleDataSource dataSource) {
-        this.config = config;
-        this.dataSource = dataSource;
-    }
-
     public void start()
             throws OracleDBQueueException
     {
+        final OracleDBQueueConfig config = ctx.getConfig();
         logger.info("Starting OracleDBQueue with config: " + config);
-        status = OracleDBQueueStatus.STARTING;
+        ctx.setStatus(OracleDBQueueStatus.STARTING);
 
         Connection conn = null;
-        OracleConnection oracleConnection = null;
 
 
         try {
-            logger.info("Analyzing oracle datasource");
-            if (dataSource != null) {
 
-            } else {
-                logger.info("Setting up OracleDataSource");
-                if (config.getDataSourceConfig() == null) {
-                    // exception
-                    status = OracleDBQueueStatus.START_FAILURE;
-                    throw new OracleDBQueueException(ErrorConstants.ERR_INVALID_DATASOURCE_CONFIGURATION, "DataSource is null and no configuration was supplied");
-                }
-                dataSource = OracleDataSourceUtil.createPooledDataSource(config.getDataSourceConfig());
-            }
+            // setup task manager
+            setupTaskManager();
+
+            // setup data source if needed
+            setupDataSource();
 
             // register database change notification
             logger.debug("Getting connection!");
-            conn = dataSource.getConnection();
-            logger.debug("Got connection");
-            oracleConnection = (OracleConnection) conn;
+            conn = ctx.getDataSource().getConnection();
+            registeringDatabaseChangeNotification((OracleConnection)conn);
 
-            // unregister previous change notifications for user
-            OracleRegistrationUtil.unregisterPreviousNotificationsForUser(oracleConnection, config.getTableName());
-
-            final OracleDBQueueListener oracleDBQueueListener = new OracleDBQueueListener(config, dataSource);
-
-            logger.info("Setting up properties for listener");
-            Properties prop = new Properties();
-            prop.setProperty(OracleConnection.DCN_NOTIFY_ROWIDS,"true");
-            prop.setProperty(OracleConnection.DCN_QUERY_CHANGE_NOTIFICATION,"true");
-            prop.setProperty(OracleConnection.DCN_BEST_EFFORT,"true");
-
-            dcr = OracleRegistrationUtil.registerDatabaseChange(oracleConnection, oracleDBQueueListener, config.getTableName(), config.getListenerQuery(), prop);
-
-            logger.info("Listener STARTED successfully with registration id: " + dcr.getRegId() + " - Setting status to RUNNING");
-
-            status = OracleDBQueueStatus.RUNNING;
+            // set status to running
+            ctx.setStatus(OracleDBQueueStatus.RUNNING);
 
         } catch (SQLException e) {
-            status = OracleDBQueueStatus.START_FAILURE;
+            ctx.setStatus(OracleDBQueueStatus.START_FAILURE);
             logger.error("Can't start OracleDBQueue", e);
 
             // do cleanup
-            if (dcr != null) {
+            if (ctx.getDcr() != null) {
                 try {
-                    oracleConnection.unregisterDatabaseChangeNotification(dcr);
+                    ((OracleConnection)conn).unregisterDatabaseChangeNotification(ctx.getDcr());
                 } catch (SQLException e1) {
                     logger.error("Ignoring unregisterDatabaseNotification error: " + e.getMessage());
                 }
@@ -138,21 +118,67 @@ public class OracleDBQueue implements Runnable {
 
         } finally {
             logger.info("Closing connection");
-            OracleDBUtil.closeConnectionIgnoreException(oracleConnection);
+            OracleDBUtil.closeConnectionIgnoreException(conn);
             logger.info("Connection closed");
         }
 
     }
 
+    private void setupTaskManager() {
+        logger.info("Setting up task manager");
+
+        TaskManager taskManager = new TaskManager(ctx);
+        ctx.setTaskManager(taskManager);
+
+    }
+
+    private void setupDataSource() throws OracleDBQueueException, SQLException {
+        final OracleDBQueueConfig config = ctx.getConfig();
+        logger.info("Analyzing oracle datasource");
+        if (ctx.getDataSource() != null) {
+            // do nothing, just run
+        } else {
+            logger.info("Setting up OracleDataSource");
+            if (config.getDataSourceConfig() == null) {
+                // exception
+                ctx.setStatus(OracleDBQueueStatus.START_FAILURE);
+                throw new OracleDBQueueException(ErrorConstants.ERR_INVALID_DATASOURCE_CONFIGURATION, "DataSource is null and no configuration was supplied");
+            }
+            ctx.setDataSource(OracleDataSourceUtil.createPooledDataSource(config.getDataSourceConfig()));
+        }
+
+    }
+
+    private void registeringDatabaseChangeNotification(OracleConnection oracleConnection) throws SQLException {
+
+        final OracleDBQueueConfig config = ctx.getConfig();
+
+        // unregister previous change notifications for user
+        OracleRegistrationUtil.unregisterPreviousNotificationsForUser(oracleConnection, config.getTableName());
+
+        final OracleDBQueueListener oracleDBQueueListener = new OracleDBQueueListener(ctx);
+
+        logger.info("Setting up properties for listener");
+        Properties prop = new Properties();
+        prop.setProperty(OracleConnection.DCN_NOTIFY_ROWIDS,"true");
+        prop.setProperty(OracleConnection.DCN_QUERY_CHANGE_NOTIFICATION,"true");
+        prop.setProperty(OracleConnection.DCN_BEST_EFFORT,"true");
+
+        final DatabaseChangeRegistration databaseChangeRegistration = OracleRegistrationUtil.registerDatabaseChange(oracleConnection, oracleDBQueueListener, config.getTableName(), config.getListenerQuery(), prop);
+        logger.info("Listener STARTED successfully with registration id: " + databaseChangeRegistration.getRegId() + " - Setting status to RUNNING");
+        ctx.setDcr(databaseChangeRegistration);
+    }
+
     private void stop()
             throws OracleDBQueueException
     {
+        final DatabaseChangeRegistration dcr = ctx.getDcr();
 
         if (dcr != null) {
             logger.info("Going to unregister database change notification: " + dcr.getRegId());
             Connection conn = null;
             try {
-                conn = dataSource.getConnection();
+                conn = ctx.getDataSource().getConnection();
                 final OracleConnection oracleConnection = (OracleConnection)conn;
                 oracleConnection.unregisterDatabaseChangeNotification(dcr);
             } catch (SQLException e) {
@@ -162,20 +188,12 @@ public class OracleDBQueue implements Runnable {
             }
         }
 
-        status = OracleDBQueueStatus.ENDED;
+        ctx.setStatus(OracleDBQueueStatus.ENDED);
     }
 
     public void stopRequest()
     {
-        status = OracleDBQueueStatus.STOP_REQUESTED;
-    }
-
-    public OracleDBQueueConfig getConfig() {
-        return config;
-    }
-
-    public OracleDBQueueStatus getStatus() {
-        return status;
+        ctx.setStatus(OracleDBQueueStatus.STOP_REQUESTED);
     }
 
     public static void main(String[] args) throws Exception {

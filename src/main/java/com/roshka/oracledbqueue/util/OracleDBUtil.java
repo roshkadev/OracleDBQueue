@@ -4,7 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 public class OracleDBUtil {
 
@@ -21,7 +23,29 @@ public class OracleDBUtil {
         } else {
             logger.debug("Not attempting to close null connection.");
         }
-
     }
 
+    public static void closeStatementIgnoreException(Statement ps) {
+        if (ps != null) {
+            try {
+                ps.close();
+            } catch (SQLException e) {
+                logger.error("Ignoring exception while trying to close statement: " + e.getMessage());
+            }
+        } else {
+            logger.debug("Not attempting to close null statement.");
+        }
+    }
+
+    public static void closeResultSetIgnoreException(ResultSet rs) {
+        if (rs != null) {
+            try {
+                rs.close();
+            } catch (SQLException e) {
+                logger.error("Ignoring exception while trying to close result set: " + e.getMessage());
+            }
+        } else {
+            logger.debug("Not attempting to close null result set.");
+        }
+    }
 }
