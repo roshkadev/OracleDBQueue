@@ -7,6 +7,7 @@ import java.util.Map;
 public class TaskData {
 
     private ROWID rowid;
+    private String currentStatus;
     private Map<String, Object> data;
 
     public ROWID getRowid() {
@@ -25,11 +26,19 @@ public class TaskData {
         this.data = data;
     }
 
+    public String getCurrentStatus() {
+        return currentStatus;
+    }
+
+    public void setCurrentStatus(String currentStatus) {
+        this.currentStatus = currentStatus;
+    }
 
     @Override
     public String toString() {
         return "TaskData{" +
                 "rowid=" + rowid +
+                ", currentStatus=" + currentStatus +
                 ", data=" + toStringMap(data) +
                 '}';
     }

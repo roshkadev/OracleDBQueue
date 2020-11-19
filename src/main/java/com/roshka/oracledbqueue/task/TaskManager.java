@@ -2,6 +2,7 @@ package com.roshka.oracledbqueue.task;
 
 import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
 import com.roshka.oracledbqueue.OracleDBQueueCtx;
+import com.roshka.oracledbqueue.db.DBCommonOperations;
 import com.roshka.oracledbqueue.exception.ErrorConstants;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import com.roshka.oracledbqueue.util.OracleDBUtil;
@@ -13,6 +14,9 @@ import javax.sql.DataSource;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 
 public class TaskManager {
 
@@ -21,12 +25,24 @@ public class TaskManager {
 
     private OracleDBQueueCtx ctx;
 
+    private ThreadPoolExecutor executor;
+
+
+
     public TaskManager(OracleDBQueueCtx ctx) {
         this.ctx = ctx;
     }
 
     public void init()
     {
+
+        setupExecutor();
+
+    }
+
+    private void setupExecutor() {
+
+        executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
     }
 
@@ -36,6 +52,7 @@ public class TaskManager {
         TaskData taskData = new TaskData();
         taskData.setRowid(rowid);
 
+
         Map<String, Object> data = new HashMap<>();
         taskData.setData(data);
 
@@ -43,6 +60,9 @@ public class TaskManager {
 
         for (int i=0; i<rsmd.getColumnCount(); i++) {
             final String columnName = rsmd.getColumnName(i+1);
+            if (columnName.equalsIgnoreCase(ctx.getConfig().getStatusField())) {
+                taskData.setCurrentStatus(rs.getString(i+1));
+            }
             data.put(columnName, rs.getObject(i+1));
         }
 
@@ -67,7 +87,6 @@ public class TaskManager {
             conn = dataSource.getConnection();
             conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
             String sqlGet = String.format("select xxx.* from %s xxx where rowid = ?", config.getTableName());
-            String sqlUpdate = String.format("update %s set %s = ? where rowid = ?", config.getTableName(), config.getStatusField());
             ps = conn.prepareStatement(sqlGet, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
             ps.setRowId(1, rowid);
             rs = ps.executeQuery();
@@ -78,22 +97,22 @@ public class TaskManager {
                 rs.close();
                 ps.close();
 
-                ps = conn.prepareStatement(sqlUpdate);
-                ps.setString(1, "QUEUED");
-                ps.setRowId(2, rowid);
+                int updated = DBCommonOperations.updateTaskStatus(config, conn, rowid, "QUEUED");
 
-                int updated = ps.executeUpdate();
                 if (updated != 1) {
                     throw new OracleDBQueueException(
                             ErrorConstants.ERR_CANT_UPDATE_TASK,
                             String.format("Row with ROWID [" + rowid.stringValue() + "] " +
-                                    "status was not found for update. Table: [%s] Field [%s] ROWID [%s]" +
-                                    config.getTableName(),
+                                            "status was not found for update. Table: [%s] Field [%s] ROWID [%s]" +
+                                            config.getTableName(),
                                     config.getStatusField(),
                                     rowid.stringValue()
                             )
                     );
                 }
+
+                // queueing task into a separate thread
+                executor.execute(new TaskWorker(ctx, taskData));
 
             } else {
                 throw new OracleDBQueueException(ErrorConstants.ERR_ROW_NOT_FOUND, "Row with ROWID [" + rowid.stringValue() + "] not found on table " + config.getTableName());

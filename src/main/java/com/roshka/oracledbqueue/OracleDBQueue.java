@@ -201,6 +201,16 @@ public class OracleDBQueue implements Runnable {
         ctx.setStatus(OracleDBQueueStatus.STOP_REQUESTED);
     }
 
+    public void registerTaskProcessor(TaskProcessor taskProcessor) {
+        this.taskProcessor = taskProcessor;
+    }
+
+    public TaskResult processTask(Connection conn, TaskData taskData)
+        throws OracleDBQueueException
+    {
+        return taskProcessor.processTask(conn, taskData);
+    }
+
     public static void main(String[] args) throws Exception {
         System.out.println("Hello, world");
 
@@ -213,20 +223,21 @@ public class OracleDBQueue implements Runnable {
 
         OracleDBQueue oracleDBQueue = new OracleDBQueue(oracleDBQueueConfig);
 
+        oracleDBQueue.registerTaskProcessor(new TaskProcessor() {
+            @Override
+            public TaskResult processTask(Connection conn, TaskData taskData) throws OracleDBQueueException {
+                logger.info("Processing task data: " + taskData.toString());
+                TaskResult taskResult = new TaskResult(taskData.getCurrentStatus());
+                taskResult.setNewStatus("OK");
+                return taskResult;
+            }
+        });
+
+
         final Thread thread = new Thread(oracleDBQueue);
         thread.start();
 
         thread.join();
-    }
-
-    public void registerTaskProcessor(TaskProcessor taskProcessor) {
-        this.taskProcessor = taskProcessor;
-    }
-
-    public TaskResult processTask(Connection conn, TaskData taskData)
-        throws OracleDBQueueException
-    {
-        return taskProcessor.processTask(conn, taskData);
     }
 
 
