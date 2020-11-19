@@ -10,10 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TaskManager {
 
@@ -31,6 +30,30 @@ public class TaskManager {
 
     }
 
+    private TaskData createTaskDataFromRS(ResultSet rs, ROWID rowid)
+        throws SQLException
+    {
+        TaskData taskData = new TaskData();
+        taskData.setRowid(rowid);
+
+        Map<String, Object> data = new HashMap<>();
+        taskData.setData(data);
+
+        ResultSetMetaData rsmd = rs.getMetaData();
+
+        for (int i=0; i<rsmd.getColumnCount(); i++) {
+            final String columnName = rsmd.getColumnName(i+1);
+            data.put(columnName, rs.getObject(i+1));
+        }
+
+        return taskData;
+    }
+
+    /**
+     * This function just gets the data from the table, and qu
+     * @param rowid
+     * @throws OracleDBQueueException
+     */
     public void queueTask(ROWID rowid)
             throws OracleDBQueueException
     {
@@ -42,27 +65,55 @@ public class TaskManager {
         ResultSet rs = null;
         try {
             conn = dataSource.getConnection();
-            String sql = String.format("select * from %s where rowid = ?", config.getTableName());
-            ps = conn.prepareCall(sql);
+            conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            String sqlGet = String.format("select xxx.* from %s xxx where rowid = ?", config.getTableName());
+            String sqlUpdate = String.format("update %s set %s = ? where rowid = ?", config.getTableName(), config.getStatusField());
+            ps = conn.prepareStatement(sqlGet, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
             ps.setRowId(1, rowid);
             rs = ps.executeQuery();
             if (rs.next()) {
+                TaskData taskData = createTaskDataFromRS(rs, rowid);
+                logger.info("GOT TASK DATA!");
+                logger.info(taskData.toString());
+                rs.close();
+                ps.close();
 
+                ps = conn.prepareStatement(sqlUpdate);
+                ps.setString(1, "QUEUED");
+                ps.setRowId(2, rowid);
 
+                int updated = ps.executeUpdate();
+                if (updated != 1) {
+                    throw new OracleDBQueueException(
+                            ErrorConstants.ERR_CANT_UPDATE_TASK,
+                            String.format("Row with ROWID [" + rowid.stringValue() + "] " +
+                                    "status was not found for update. Table: [%s] Field [%s] ROWID [%s]" +
+                                    config.getTableName(),
+                                    config.getStatusField(),
+                                    rowid.stringValue()
+                            )
+                    );
+                }
 
             } else {
                 throw new OracleDBQueueException(ErrorConstants.ERR_ROW_NOT_FOUND, "Row with ROWID [" + rowid.stringValue() + "] not found on table " + config.getTableName());
             }
-
+            conn.commit();
 
         } catch (SQLException e) {
-
+            try {
+                logger.info("Rolling back transaction");
+                conn.rollback();
+                logger.info("Rollback completed");
+            } catch (SQLException e1) {
+                logger.error("Cant' rollback", e1);
+            }
+            throw new OracleDBQueueException(ErrorConstants.SQL_ERROR, "SQLException while queueing task: " + e.getMessage(), e);
         } finally {
             OracleDBUtil.closeResultSetIgnoreException(rs);
             OracleDBUtil.closeStatementIgnoreException(ps);
             OracleDBUtil.closeConnectionIgnoreException(conn);
         }
-
 
     }
     

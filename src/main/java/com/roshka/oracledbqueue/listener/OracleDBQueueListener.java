@@ -74,7 +74,7 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
                                 try {
                                     taskManager.queueTask(rowChangeDescription.getRowid());
                                 } catch (OracleDBQueueException e) {
-                                    logger.error("Failure when attemting to QUEUE task: ", e.getCode() + "/" + e.getMessage());
+                                    logger.error("Failure when attempting to QUEUE task: " + e.getCode() + "/" + e.getMessage());
                                 }
                             }
                         }

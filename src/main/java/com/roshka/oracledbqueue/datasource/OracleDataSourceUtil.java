@@ -12,7 +12,6 @@ public class OracleDataSourceUtil {
     public static DataSource createPooledDataSource(OracleDataSourceConfig config)
         throws SQLException
     {
-
         PoolDataSource pds = PoolDataSourceFactory.getPoolDataSource();
         pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
 
@@ -26,8 +25,10 @@ public class OracleDataSourceUtil {
         pds.setMaxPoolSize(config.getMaxPoolSize());
         pds.setValidateConnectionOnBorrow(config.isValidateConnectionOnBorrow());
 
+        /* ENABLE THIS IF YOU ARE GOING TO USE NEWER VERSIONS OF JDBC DRIVERS
         if (config.getConnectionValidationTimeout() != null)
             pds.setConnectionValidationTimeout(config.getConnectionValidationTimeout());
+         */
 
         pds.setSQLForValidateConnection(config.getSqlForValidateConnection());
 

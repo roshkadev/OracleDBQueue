@@ -6,7 +6,10 @@ import com.roshka.oracledbqueue.datasource.OracleDataSourceUtil;
 import com.roshka.oracledbqueue.exception.ErrorConstants;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import com.roshka.oracledbqueue.listener.OracleDBQueueListener;
+import com.roshka.oracledbqueue.task.TaskData;
 import com.roshka.oracledbqueue.task.TaskManager;
+import com.roshka.oracledbqueue.task.TaskProcessor;
+import com.roshka.oracledbqueue.task.TaskResult;
 import com.roshka.oracledbqueue.util.OracleDBUtil;
 import com.roshka.oracledbqueue.util.OracleRegistrationUtil;
 import oracle.jdbc.OracleConnection;
@@ -18,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.io.FileReader;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
 
 public class OracleDBQueue implements Runnable {
@@ -35,6 +39,7 @@ public class OracleDBQueue implements Runnable {
     }
 
     private OracleDBQueueCtx ctx;
+    private TaskProcessor taskProcessor;
 
     public OracleDBQueue(OracleDBQueueConfig config) {
         this(config, null);
@@ -213,5 +218,16 @@ public class OracleDBQueue implements Runnable {
 
         thread.join();
     }
+
+    public void registerTaskProcessor(TaskProcessor taskProcessor) {
+        this.taskProcessor = taskProcessor;
+    }
+
+    public TaskResult processTask(Connection conn, TaskData taskData)
+        throws OracleDBQueueException
+    {
+        return taskProcessor.processTask(conn, taskData);
+    }
+
 
 }
