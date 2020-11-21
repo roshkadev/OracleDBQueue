@@ -1,20 +1,19 @@
 package com.roshka.oracledbqueue.task;
 
-import oracle.sql.ROWID;
-
+import java.sql.RowId;
 import java.util.Map;
 
 public class TaskData {
 
-    private ROWID rowid;
+    private RowId rowid;
     private String currentStatus;
     private Map<String, Object> data;
 
-    public ROWID getRowid() {
+    public RowId getRowid() {
         return rowid;
     }
 
-    public void setRowid(ROWID rowid) {
+    public void setRowid(RowId rowid) {
         this.rowid = rowid;
     }
 

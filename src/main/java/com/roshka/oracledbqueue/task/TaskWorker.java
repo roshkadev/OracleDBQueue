@@ -2,8 +2,8 @@ package com.roshka.oracledbqueue.task;
 
 import com.roshka.oracledbqueue.OracleDBQueue;
 import com.roshka.oracledbqueue.OracleDBQueueCtx;
+import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
 import com.roshka.oracledbqueue.db.DBCommonOperations;
-import com.roshka.oracledbqueue.exception.ErrorConstants;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import com.roshka.oracledbqueue.util.OracleDBUtil;
 import org.slf4j.Logger;
@@ -14,7 +14,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.concurrent.BlockingQueue;
 
 public class TaskWorker implements Runnable {
     
@@ -35,10 +34,10 @@ public class TaskWorker implements Runnable {
 
         DataSource dataSource = ctx.getDataSource();
         final OracleDBQueue oracleDBQueue = ctx.getOracleDBQueue();
+        final OracleDBQueueConfig config = ctx.getConfig();
         Connection connection = null;
 
         try {
-            connection = dataSource.getConnection();
             logger.info("Attempting to get connection");
             connection = dataSource.getConnection();
             logger.info("Got connection");
@@ -47,11 +46,11 @@ public class TaskWorker implements Runnable {
             final TaskResult taskResult = oracleDBQueue.processTask(connection, taskData);
             taskResult.setT01(LocalDateTime.now());
             long millis = taskResult.getT00().until(taskResult.getT01(), ChronoUnit.MILLIS);
-            logger.info(String.format("Completed task execution in %d seconds", ((float)millis)/1000.0));
+            logger.info(String.format("Completed task execution in %f seconds", ((float)millis)/1000.0));
 
             // updating task status
             logger.info("Going to update status to " + taskResult.getNewStatus());
-            int updated = DBCommonOperations.updateTaskStatus(ctx.getConfig(), connection, taskData.getRowid(), taskResult.getNewStatus());
+            int updated = DBCommonOperations.updateTaskStatus(config, connection, taskData.getRowid(), taskResult.getNewStatus());
 
             logger.info("Updated task status to: " + taskResult.getNewStatus() + " -> " + updated);
 
@@ -63,7 +62,7 @@ public class TaskWorker implements Runnable {
             if (connection != null) {
 
                 try {
-                    DBCommonOperations.updateTaskStatus(ctx.getConfig(), connection,  taskData.getRowid(), "ERROR-SQL");
+                    DBCommonOperations.updateTaskStatus(config, connection,  taskData.getRowid(), config.getStatusField());
                 } catch (SQLException e1) {
                     logger.error("Ignoring SQLException when tried to update status to ERROR-SQL: " + e1.getMessage());
                 }
@@ -77,7 +76,7 @@ public class TaskWorker implements Runnable {
             if (connection != null) {
 
                 try {
-                    DBCommonOperations.updateTaskStatus(ctx.getConfig(), connection,  taskData.getRowid(), "ERROR-ORADBQUEUE");
+                    DBCommonOperations.updateTaskStatus(config, connection,  taskData.getRowid(), config.getStatusValFailed());
                 } catch (SQLException e1) {
                     logger.error("Ignoring SQLException when tried to update status to ERROR-SQL: " + e1.getMessage());
                 }

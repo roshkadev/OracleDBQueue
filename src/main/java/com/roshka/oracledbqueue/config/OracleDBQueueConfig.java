@@ -19,6 +19,12 @@ public class OracleDBQueueConfig {
     public static final String CONFKEY_STATUS_FIELD = String.format("%s.status_field", CONFKEY_PREFIX);
     private String statusField;
 
+    public static final String CONFKEY_STATUS_VAL_QUEUED = String.format("%s.status.queued", CONFKEY_PREFIX);
+    private String statusValQueued;
+
+    public static final String CONFKEY_STATUS_VAL_FAILED = String.format("%s.status.failed", CONFKEY_PREFIX);
+    private String statusValFailed;
+
     public static final String CONFKEY_AUXILIARY_POLL_QUEUE_INTERVAL = String.format("%s.auxiliary_poll_queue_interval", CONFKEY_PREFIX);
     public static final int DEFAULT_AUXILIARY_POLL_QUEUE_INTERVAL = 10;
     private int auxiliaryPollQueueInterval = DEFAULT_AUXILIARY_POLL_QUEUE_INTERVAL;
@@ -83,5 +89,21 @@ public class OracleDBQueueConfig {
 
     public void setStatusField(String statusField) {
         this.statusField = statusField;
+    }
+
+    public String getStatusValQueued() {
+        return statusValQueued;
+    }
+
+    public void setStatusValQueued(String statusValQueued) {
+        this.statusValQueued = statusValQueued;
+    }
+
+    public String getStatusValFailed() {
+        return statusValFailed;
+    }
+
+    public void setStatusValFailed(String statusValFailed) {
+        this.statusValFailed = statusValFailed;
     }
 }

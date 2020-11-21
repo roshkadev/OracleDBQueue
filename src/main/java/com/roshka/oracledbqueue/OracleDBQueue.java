@@ -18,10 +18,12 @@ import oracle.jdbc.dcn.DatabaseChangeRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.sql.DataSource;
 import java.io.FileReader;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
+import java.sql.Statement;
 import java.util.Properties;
 
 public class OracleDBQueue implements Runnable {
@@ -53,6 +55,8 @@ public class OracleDBQueue implements Runnable {
         ctx.setStatus(OracleDBQueueStatus.CREATED);
     }
 
+
+
     @Override
     public void run() {
 
@@ -62,9 +66,12 @@ public class OracleDBQueue implements Runnable {
 
             start();
 
+            processPendingTasks();
+
             while(ctx.getStatus() != OracleDBQueueStatus.STOP_REQUESTED && ctx.getStatus() != OracleDBQueueStatus.ENDED) {
                 Thread.sleep(config.getAuxiliaryPollQueueInterval()*1000);
                 // call to run the query manually
+                processPendingTasks();
             }
         } catch (InterruptedException e) {
             logger.error("Thread was interrupted, cleaning up and exiting");
@@ -80,6 +87,40 @@ public class OracleDBQueue implements Runnable {
             }
         }
         logger.info("Bye, bye now");
+    }
+
+    private void processPendingTasks() {
+
+        final OracleDBQueueConfig config = ctx.getConfig();
+        final DataSource dataSource = ctx.getDataSource();
+        final TaskManager taskManager = ctx.getTaskManager();
+
+        String sql = config.getListenerQuery();
+        Connection conn = null;
+        Statement st = null;
+        ResultSet rs = null;
+
+        try {
+
+            conn = dataSource.getConnection();
+            conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            st = conn.createStatement();
+            rs = st.executeQuery(config.getListenerQuery());
+
+            while (rs.next()) {
+                taskManager.processTaskDataInRS(conn, rs);
+            }
+
+        } catch (SQLException e) {
+            logger.error("SQLException while processing pending tasks", e);
+        } catch (OracleDBQueueException e) {
+            logger.error("OracleDBQueueException while processing pending tasks", e);
+        } finally {
+            OracleDBUtil.closeResultSetIgnoreException(rs);
+            OracleDBUtil.closeStatementIgnoreException(st);
+            OracleDBUtil.closeConnectionIgnoreException(conn);
+        }
+
     }
 
     public void start()
@@ -212,8 +253,6 @@ public class OracleDBQueue implements Runnable {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println("Hello, world");
-
         Properties properties = new Properties();
         properties.load(new FileReader("conf/ccp.properties"));
 

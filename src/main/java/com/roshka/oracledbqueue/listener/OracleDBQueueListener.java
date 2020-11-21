@@ -35,24 +35,6 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
         return sb.toString();
     }
 
-
-    private void processRowChange(RowChangeDescription rowChangeDescription) {
-
-        Connection connection = null;
-        final DataSource oracleDataSource = ctx.getDataSource();
-        try {
-            connection = oracleDataSource.getConnection();
-
-        } catch (SQLException e) {
-            logger.error("SQLException while trying to process row change");
-
-        } finally {
-            OracleDBUtil.closeConnectionIgnoreException(connection);
-        }
-
-
-    }
-
     @Override
     public void onDatabaseChangeNotification(DatabaseChangeEvent databaseChangeEvent) {
 
