@@ -1,17 +1,14 @@
 package com.roshka.oracledbqueue.listener;
 
-import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
 import com.roshka.oracledbqueue.OracleDBQueueCtx;
+import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import com.roshka.oracledbqueue.task.TaskManager;
-import com.roshka.oracledbqueue.util.OracleDBUtil;
 import oracle.jdbc.dcn.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.EnumSet;
 
 public class OracleDBQueueListener implements DatabaseChangeListener  {

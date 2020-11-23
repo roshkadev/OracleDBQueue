@@ -16,14 +16,19 @@ public class OracleDBQueueConfig {
     public static final String CONFKEY_TABLE_NAME = String.format("%s.table_name", CONFKEY_PREFIX);
     private String tableName;
 
+    public static final String CONFKEY_QUERY_CHANGE_NOTIFICATIONS_DISABLED = String.format("%s.query_change_notifications_disabled", CONFKEY_PREFIX);
+    private boolean queryChangeNotificationsDisabled;
+
     public static final String CONFKEY_STATUS_FIELD = String.format("%s.status_field", CONFKEY_PREFIX);
     private String statusField;
 
+    public static final String DEFAULT_STATUS_VAL_QUEUED = "S-QUEUED";
     public static final String CONFKEY_STATUS_VAL_QUEUED = String.format("%s.status.queued", CONFKEY_PREFIX);
-    private String statusValQueued;
+    private String statusValQueued = DEFAULT_STATUS_VAL_QUEUED;
 
+    public static final String DEFAULT_STATUS_VAL_FAILED = "S-FAILED";
     public static final String CONFKEY_STATUS_VAL_FAILED = String.format("%s.status.failed", CONFKEY_PREFIX);
-    private String statusValFailed;
+    private String statusValFailed = DEFAULT_STATUS_VAL_FAILED;
 
     public static final String CONFKEY_AUXILIARY_POLL_QUEUE_INTERVAL = String.format("%s.auxiliary_poll_queue_interval", CONFKEY_PREFIX);
     public static final int DEFAULT_AUXILIARY_POLL_QUEUE_INTERVAL = 10;
@@ -50,6 +55,11 @@ public class OracleDBQueueConfig {
         oracleDBQueueConfig.setListenerQuery(props.getProperty(CONFKEY_LISTENER_QUERY));
         oracleDBQueueConfig.setTableName(props.getProperty(CONFKEY_TABLE_NAME));
         oracleDBQueueConfig.setStatusField(props.getProperty(CONFKEY_STATUS_FIELD));
+        oracleDBQueueConfig.setStatusValFailed(props.getProperty(CONFKEY_STATUS_VAL_FAILED, DEFAULT_STATUS_VAL_FAILED));
+        oracleDBQueueConfig.setStatusValQueued(props.getProperty(CONFKEY_STATUS_VAL_QUEUED, DEFAULT_STATUS_VAL_QUEUED));
+        oracleDBQueueConfig.setQueryChangeNotificationsDisabled(
+                Boolean.valueOf(props.getProperty(CONFKEY_QUERY_CHANGE_NOTIFICATIONS_DISABLED, "false"))
+        );
         if (props.containsKey(CONFKEY_AUXILIARY_POLL_QUEUE_INTERVAL))
             oracleDBQueueConfig.setAuxiliaryPollQueueInterval(
                     PropertiesUtil.getIntegerProperty(props, CONFKEY_AUXILIARY_POLL_QUEUE_INTERVAL, DEFAULT_AUXILIARY_POLL_QUEUE_INTERVAL)
@@ -71,7 +81,11 @@ public class OracleDBQueueConfig {
                 "dataSourceConfig=" + dataSourceConfig +
                 ", listenerQuery='" + listenerQuery + '\'' +
                 ", tableName='" + tableName + '\'' +
+                ", queryChangeNotificationsDisabled=" + queryChangeNotificationsDisabled +
                 ", statusField='" + statusField + '\'' +
+                ", statusValQueued='" + statusValQueued + '\'' +
+                ", statusValFailed='" + statusValFailed + '\'' +
+                ", auxiliaryPollQueueInterval=" + auxiliaryPollQueueInterval +
                 '}';
     }
 
@@ -105,5 +119,13 @@ public class OracleDBQueueConfig {
 
     public void setStatusValFailed(String statusValFailed) {
         this.statusValFailed = statusValFailed;
+    }
+
+    public boolean isQueryChangeNotificationsDisabled() {
+        return queryChangeNotificationsDisabled;
+    }
+
+    public void setQueryChangeNotificationsDisabled(boolean queryChangeNotificationsDisabled) {
+        this.queryChangeNotificationsDisabled = queryChangeNotificationsDisabled;
     }
 }

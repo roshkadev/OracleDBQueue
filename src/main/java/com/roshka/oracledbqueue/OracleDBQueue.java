@@ -91,6 +91,8 @@ public class OracleDBQueue implements Runnable {
 
     private void processPendingTasks() {
 
+        logger.info("Processing pending TASKS");
+
         final OracleDBQueueConfig config = ctx.getConfig();
         final DataSource dataSource = ctx.getDataSource();
         final TaskManager taskManager = ctx.getTaskManager();
@@ -102,10 +104,10 @@ public class OracleDBQueue implements Runnable {
 
         try {
 
+            logger.debug("Going to run query: " + sql);
             conn = dataSource.getConnection();
-            conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
             st = conn.createStatement();
-            rs = st.executeQuery(config.getListenerQuery());
+            rs = st.executeQuery(sql);
 
             while (rs.next()) {
                 taskManager.processTaskDataInRS(conn, rs);
@@ -144,7 +146,12 @@ public class OracleDBQueue implements Runnable {
             // register database change notification
             logger.debug("Getting connection!");
             conn = ctx.getDataSource().getConnection();
-            registeringDatabaseChangeNotification((OracleConnection)conn);
+
+            if (!config.isQueryChangeNotificationsDisabled()) {
+                registeringDatabaseChangeNotification((OracleConnection)conn);
+            } else {
+                logger.warn("QUERY CHANGE NOTIFICATIONS are disabled. It's recommended to use them for best performance");
+            }
 
             // set status to running
             ctx.setStatus(OracleDBQueueStatus.RUNNING);

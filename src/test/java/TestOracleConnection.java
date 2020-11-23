@@ -20,7 +20,7 @@ public class TestOracleConnection {
     public void testDatasourceConfiguration() throws IOException, SQLException {
 
         Properties properties = new Properties();
-        properties.load(new FileReader("conf/test.properties"));
+        properties.load(new FileReader("conf/ccp.properties"));
 
         final OracleDataSourceConfig oracleDataSourceConfig = OracleDataSourceConfig.loadFromProperties(properties);
 

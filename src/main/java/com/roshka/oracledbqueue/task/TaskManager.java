@@ -78,6 +78,7 @@ public class TaskManager {
         ResultSet rs = null;
         try {
             conn = dataSource.getConnection();
+            int tisolation = conn.getTransactionIsolation();
             conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
             String sqlGet = String.format("select xxx.* from %s xxx where rowid = ?", config.getTableName());
             ps = conn.prepareStatement(sqlGet, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -89,6 +90,7 @@ public class TaskManager {
                 throw new OracleDBQueueException(ErrorConstants.ERR_ROW_NOT_FOUND, "Row with ROWID [" + rowid.stringValue() + "] not found on table " + config.getTableName());
             }
             conn.commit();
+            conn.setTransactionIsolation(tisolation);
 
         } catch (SQLException e) {
             try {
@@ -116,7 +118,10 @@ public class TaskManager {
         logger.info("GOT TASK DATA!");
         logger.info(taskData.toString());
 
+        int tisolation = conn.getTransactionIsolation();
+        conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
         int updated = DBCommonOperations.updateTaskStatus(config, conn, rowid, config.getStatusValQueued());
+        conn.setTransactionIsolation(tisolation);
 
         if (updated != 1) {
             throw new OracleDBQueueException(
