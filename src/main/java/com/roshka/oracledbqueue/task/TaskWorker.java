@@ -40,6 +40,8 @@ public class TaskWorker implements Runnable {
         try {
             logger.info("Attempting to get connection");
             connection = dataSource.getConnection();
+            int tisolation = connection.getTransactionIsolation();
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             logger.info("Got connection");
 
             logger.info("Attempting to process task");
@@ -53,6 +55,8 @@ public class TaskWorker implements Runnable {
             int updated = DBCommonOperations.updateTaskStatus(config, connection, taskData.getRowid(), taskResult.getNewStatus());
 
             logger.info("Updated task status to: " + taskResult.getNewStatus() + " -> " + updated);
+
+            connection.setTransactionIsolation(tisolation);
 
         } catch (SQLException e) {
 
