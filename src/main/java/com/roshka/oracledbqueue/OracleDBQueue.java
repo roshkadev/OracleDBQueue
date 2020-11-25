@@ -20,10 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.io.FileReader;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.Properties;
 
 public class OracleDBQueue implements Runnable {
@@ -101,7 +98,7 @@ public class OracleDBQueue implements Runnable {
         Connection conn = null;
         Statement st = null;
         ResultSet rs = null;
-
+        RowId currentRowId = null;
         try {
 
             logger.debug("Going to run query: " + sql);
@@ -110,11 +107,18 @@ public class OracleDBQueue implements Runnable {
             rs = st.executeQuery(sql);
 
             while (rs.next()) {
-                taskManager.processTaskDataInRS(conn, rs);
+                currentRowId = rs.getRowId("rowid");
+                taskManager.processTaskDataInRS(TaskManager.TaskQueueType.QUERY_POLLING_THREAD, conn, rs);
             }
 
         } catch (SQLException e) {
-            logger.error("SQLException while processing pending tasks", e);
+            boolean handled = false;
+            if (e.getErrorCode() == 8177) {
+                handled = true;
+                logger.info("Not processing rowid " + (currentRowId != null ? currentRowId.toString() : "N/A - It was probably processed in the QUERY CHANGE NOTIFICATION event"));
+            }
+            if (!handled)
+                logger.error("Unexpected SQLException while processing pending tasks", e);
         } catch (OracleDBQueueException e) {
             logger.error("OracleDBQueueException while processing pending tasks", e);
         } finally {
@@ -286,7 +290,18 @@ public class OracleDBQueue implements Runnable {
             public TaskResult processTask(Connection conn, TaskData taskData) throws OracleDBQueueException {
                 logger.info("Processing task data: " + taskData.toString());
                 TaskResult taskResult = new TaskResult(taskData.getCurrentStatus());
-                taskResult.setNewStatus("OK");
+
+                String updateSQL = "update MICHI.GE_SNP_MEN_ENVIADOS set cod_msj_swift = cod_msj_swift + 1, fec_proceso = SYSDATE, msj_resultado = ? where rowid = ?";
+                try {
+                    PreparedStatement ps = conn.prepareStatement(updateSQL);
+                    ps.setString(1, taskData.getTaskQueueType().toString());
+                    ps.setRowId(2, taskData.getRowid());
+                    ps.executeUpdate();
+                    taskResult.setNewStatus("OK");
+                } catch (SQLException e) {
+                    taskResult.setNewStatus("ERR");
+                    logger.error("Error on TASK PROCESSOR", e);
+                }
                 return taskResult;
             }
         });

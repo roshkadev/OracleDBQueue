@@ -30,6 +30,9 @@ public class TaskWorker implements Runnable {
     @Override
     public void run() {
 
+        LocalDateTime t0 = LocalDateTime.now();
+        taskData.setT0(t0);
+
         logger.info("Going to run: " + taskData.toString());
 
         DataSource dataSource = ctx.getDataSource();
@@ -90,6 +93,16 @@ public class TaskWorker implements Runnable {
         } finally {
             OracleDBUtil.closeConnectionIgnoreException(connection);
         }
+
+        taskData.setT1(LocalDateTime.now());
+        long millis = taskData.getT0().until(taskData.getT1(), ChronoUnit.MILLIS);
+        long millisSinceQueued = taskData.getTq().until(taskData.getT1(), ChronoUnit.MILLIS);
+
+        logger.debug(
+                String.format(
+                        "TaskData Started: %s - Ended: %s - Total Time (msecs) %d - Total Time Sinces queued (msecs) %d", taskData.getT0(), taskData.getT1(), millis, millisSinceQueued
+                )
+        );
 
     }
 

@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -19,6 +20,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 public class TaskManager {
 
+    public enum TaskQueueType {
+        QUERY_CHANGE_NOTIFICATION_EVENT,
+        QUERY_POLLING_THREAD
+    }
 
     private static Logger logger = LoggerFactory.getLogger(TaskManager.class);
 
@@ -39,10 +44,10 @@ public class TaskManager {
 
     }
 
-    private TaskData createTaskDataFromRS(ResultSet rs, RowId rowid)
+    private TaskData createTaskDataFromRS(TaskQueueType taskQueueType, ResultSet rs, RowId rowid)
         throws SQLException
     {
-        TaskData taskData = new TaskData();
+        TaskData taskData = new TaskData(taskQueueType);
         taskData.setRowid(rowid);
 
 
@@ -86,7 +91,7 @@ public class TaskManager {
             ps.setRowId(1, rowid);
             rs = ps.executeQuery();
             if (rs.next()) {
-                processTaskDataInRS(conn, rs);
+                processTaskDataInRS(TaskQueueType.QUERY_CHANGE_NOTIFICATION_EVENT, conn, rs);
             } else {
                 throw new OracleDBQueueException(ErrorConstants.ERR_ROW_NOT_FOUND, "Row with ROWID [" + rowid.stringValue() + "] not found on table " + config.getTableName());
             }
@@ -110,12 +115,12 @@ public class TaskManager {
 
     }
 
-    public  void processTaskDataInRS(Connection conn, ResultSet rs) throws SQLException, OracleDBQueueException {
+    public void processTaskDataInRS(TaskQueueType taskQueueType, Connection conn, ResultSet rs) throws SQLException, OracleDBQueueException {
 
         final RowId rowid = rs.getRowId("rowid");
         final OracleDBQueueConfig config = ctx.getConfig();
 
-        TaskData taskData = createTaskDataFromRS(rs, rowid);
+        TaskData taskData = createTaskDataFromRS(taskQueueType, rs, rowid);
         logger.info("GOT TASK DATA!");
         logger.info(taskData.toString());
 
@@ -137,6 +142,7 @@ public class TaskManager {
         }
 
         // queueing task into a separate thread
+        taskData.setTq(LocalDateTime.now());
         executor.execute(new TaskWorker(ctx, taskData));
     }
 

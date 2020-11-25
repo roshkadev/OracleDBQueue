@@ -1,9 +1,21 @@
 package com.roshka.oracledbqueue.task;
 
 import java.sql.RowId;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 public class TaskData {
+
+    private LocalDateTime tq;
+    private LocalDateTime t0;
+    private LocalDateTime t1;
+
+    private String threadName;
+    private TaskManager.TaskQueueType taskQueueType;
+
+    public TaskData(TaskManager.TaskQueueType taskQueueType) {
+        this.taskQueueType = taskQueueType;
+    }
 
     private RowId rowid;
     private String currentStatus;
@@ -42,6 +54,8 @@ public class TaskData {
                 '}';
     }
 
+
+
     public String toStringMap(Map<String, Object> data) {
         if (data != null) {
             StringBuilder sb = new StringBuilder("{");
@@ -60,4 +74,43 @@ public class TaskData {
         }
     }
 
+    public LocalDateTime getTq() {
+        return tq;
+    }
+
+    public void setTq(LocalDateTime tq) {
+        this.tq = tq;
+    }
+
+    public LocalDateTime getT0() {
+        return t0;
+    }
+
+    public void setT0(LocalDateTime t0) {
+        this.t0 = t0;
+    }
+
+    public LocalDateTime getT1() {
+        return t1;
+    }
+
+    public void setT1(LocalDateTime t1) {
+        this.t1 = t1;
+    }
+
+    public String getThreadName() {
+        return threadName;
+    }
+
+    public void setThreadName(String threadName) {
+        this.threadName = threadName;
+    }
+
+    public TaskManager.TaskQueueType getTaskQueueType() {
+        return taskQueueType;
+    }
+
+    public void setTaskQueueType(TaskManager.TaskQueueType taskQueueType) {
+        this.taskQueueType = taskQueueType;
+    }
 }
