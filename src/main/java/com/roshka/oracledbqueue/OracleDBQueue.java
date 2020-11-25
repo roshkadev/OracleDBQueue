@@ -216,9 +216,21 @@ public class OracleDBQueue implements Runnable {
         prop.setProperty(OracleConnection.DCN_NOTIFY_ROWIDS,"true");
         prop.setProperty(OracleConnection.DCN_QUERY_CHANGE_NOTIFICATION,"true");
         prop.setProperty(OracleConnection.DCN_BEST_EFFORT,"true");
+        if (config.getListenerHost() != null) {
+            prop.setProperty(OracleConnection.NTF_LOCAL_HOST, config.getListenerHost());
+        }
+        if (config.getListenerPort() != null) {
+            prop.setProperty(OracleConnection.NTF_LOCAL_TCP_PORT, String.valueOf(config.getListenerPort()));
+        }
 
         final DatabaseChangeRegistration databaseChangeRegistration = OracleRegistrationUtil.registerDatabaseChange(oracleConnection, oracleDBQueueListener, config.getTableName(), config.getListenerQuery(), prop);
-        logger.info("Listener STARTED successfully with registration id: " + databaseChangeRegistration.getRegId() + " - Setting status to RUNNING");
+        logger.info(String.format(
+                    "Listener STARTED successfully with registration id [%s] Specified Host [%s] Specified Port [%s] - Setting status to RUNNING",
+                    databaseChangeRegistration.getRegId(),
+                    databaseChangeRegistration.getRegistrationOptions().getProperty(OracleConnection.NTF_LOCAL_HOST),
+                    databaseChangeRegistration.getRegistrationOptions().getProperty(OracleConnection.NTF_LOCAL_TCP_PORT)
+                )
+        );
         ctx.setDcr(databaseChangeRegistration);
     }
 

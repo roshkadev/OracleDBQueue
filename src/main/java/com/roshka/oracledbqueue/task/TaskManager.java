@@ -78,6 +78,7 @@ public class TaskManager {
         ResultSet rs = null;
         try {
             conn = dataSource.getConnection();
+            conn.setAutoCommit(false);
             int tisolation = conn.getTransactionIsolation();
             conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
             String sqlGet = String.format("select xxx.* from %s xxx where rowid = ?", config.getTableName());

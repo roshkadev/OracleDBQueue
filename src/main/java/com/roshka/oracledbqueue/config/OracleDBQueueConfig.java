@@ -1,6 +1,7 @@
 package com.roshka.oracledbqueue.config;
 
 import com.roshka.oracledbqueue.util.PropertiesUtil;
+import oracle.jdbc.OracleConnection;
 
 import java.util.Properties;
 
@@ -10,8 +11,15 @@ public class OracleDBQueueConfig {
 
     private OracleDataSourceConfig dataSourceConfig;
 
-    public static final String CONFKEY_LISTENER_QUERY = String.format("%s.listener_query", CONFKEY_PREFIX);
+    public static final String CONFKEY_LISTENER_QUERY = String.format("%s.listener.query", CONFKEY_PREFIX);
     private String listenerQuery;
+
+
+    public static final String CONFKEY_LISTENER_HOST = String.format("%s.listener.host", CONFKEY_PREFIX);
+    private String listenerHost;
+
+    public static final String CONFKEY_LISTENER_PORT = String.format("%s.listener.port", CONFKEY_PREFIX);
+    private Integer listenerPort;
 
     public static final String CONFKEY_TABLE_NAME = String.format("%s.table_name", CONFKEY_PREFIX);
     private String tableName;
@@ -64,6 +72,17 @@ public class OracleDBQueueConfig {
             oracleDBQueueConfig.setAuxiliaryPollQueueInterval(
                     PropertiesUtil.getIntegerProperty(props, CONFKEY_AUXILIARY_POLL_QUEUE_INTERVAL, DEFAULT_AUXILIARY_POLL_QUEUE_INTERVAL)
             );
+        if (props.containsKey(CONFKEY_LISTENER_HOST)) {
+            oracleDBQueueConfig.setListenerHost(
+                    props.getProperty(CONFKEY_LISTENER_HOST)
+            );
+        }
+        if (props.containsKey(CONFKEY_LISTENER_PORT)) {
+            oracleDBQueueConfig.setListenerPort(
+                    PropertiesUtil.getIntegerProperty(props, CONFKEY_LISTENER_PORT, OracleConnection.NTF_DEFAULT_TCP_PORT)
+            );
+        }
+
         return oracleDBQueueConfig;
     }
 
@@ -127,5 +146,21 @@ public class OracleDBQueueConfig {
 
     public void setQueryChangeNotificationsDisabled(boolean queryChangeNotificationsDisabled) {
         this.queryChangeNotificationsDisabled = queryChangeNotificationsDisabled;
+    }
+
+    public String getListenerHost() {
+        return listenerHost;
+    }
+
+    public void setListenerHost(String listenerHost) {
+        this.listenerHost = listenerHost;
+    }
+
+    public Integer getListenerPort() {
+        return listenerPort;
+    }
+
+    public void setListenerPort(Integer listenerPort) {
+        this.listenerPort = listenerPort;
     }
 }
