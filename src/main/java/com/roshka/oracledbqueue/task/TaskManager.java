@@ -128,6 +128,7 @@ public class TaskManager {
         conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
         int updated = DBCommonOperations.updateTaskStatus(config, conn, rowid, config.getStatusValQueued());
         conn.setTransactionIsolation(tisolation);
+        conn.commit();
 
         if (updated != 1) {
             throw new OracleDBQueueException(
@@ -142,7 +143,9 @@ public class TaskManager {
         }
 
         // queueing task into a separate thread
-        taskData.setTq(LocalDateTime.now());
+        final LocalDateTime now = LocalDateTime.now();
+        logger.info("Queueing task DATA at time " + now);
+        taskData.setTq(now);
         executor.execute(new TaskWorker(ctx, taskData));
     }
 

@@ -103,6 +103,8 @@ public class OracleDBQueue implements Runnable {
 
             logger.debug("Going to run query: " + sql);
             conn = dataSource.getConnection();
+            conn.setAutoCommit(false);
+            conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             st = conn.createStatement();
             rs = st.executeQuery(sql);
 
