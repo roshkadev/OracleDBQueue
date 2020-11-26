@@ -1,10 +1,11 @@
 package com.roshka.oracledbqueue.config;
 
+import com.roshka.oracledbqueue.datasource.OracleDataSourceUtil;
 import com.roshka.oracledbqueue.util.PropertiesUtil;
 
 import java.util.Properties;
 
-public class OracleDataSourceConfig {
+public class OracleDataSourceConfig implements Cloneable {
 
     public static final String CONFKEY_PREFIX = "odbq.ds";
 
@@ -60,6 +61,27 @@ public class OracleDataSourceConfig {
     public static final String CONFKEY_CONNECTION_WAIT_TIMEOUT = String.format("%s.connection_wait_timeout", CONFKEY_PREFIX);
     public static final Integer DEFAULT_CONNECTION_WAIT_TIMEOUT = null;
     private Integer connectionWaitTimeout = DEFAULT_CONNECTION_WAIT_TIMEOUT;
+
+    public OracleDataSourceConfig()
+    {
+    }
+
+    public OracleDataSourceConfig(OracleDataSourceConfig dataSourceConfig) {
+        this.setJdbcPassword(dataSourceConfig.getJdbcPassword());
+        this.setJdbcUser(dataSourceConfig.getJdbcUser());
+        this.setJdbcURL(dataSourceConfig.getJdbcURL());
+        this.setAbandonedConnectionTimeout(dataSourceConfig.getAbandonedConnectionTimeout());
+        this.setConnectionPoolName(dataSourceConfig.getConnectionPoolName());
+        this.setConnectionValidationTimeout(dataSourceConfig.getConnectionValidationTimeout());
+        this.setConnectionWaitTimeout(dataSourceConfig.getConnectionWaitTimeout());
+        this.setInactiveConnectionTimeout(dataSourceConfig.getInactiveConnectionTimeout());
+        this.setInitialPoolSize(dataSourceConfig.getInitialPoolSize());
+        this.setLoginTimeout(dataSourceConfig.getLoginTimeout());
+        this.setMaxPoolSize(dataSourceConfig.getMaxPoolSize());
+        this.setQueryTimeout(dataSourceConfig.getQueryTimeout());
+        this.setSqlForValidateConnection(dataSourceConfig.getSqlForValidateConnection());
+        this.setValidateConnectionOnBorrow(dataSourceConfig.isValidateConnectionOnBorrow());
+    }
 
     public String getJdbcURL() {
         return jdbcURL;

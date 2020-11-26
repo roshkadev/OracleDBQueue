@@ -3,8 +3,10 @@ package com.roshka.oracledbqueue.listener;
 import com.roshka.oracledbqueue.OracleDBQueueCtx;
 import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
+import com.roshka.oracledbqueue.task.TaskData;
 import com.roshka.oracledbqueue.task.TaskManager;
 import oracle.jdbc.dcn.*;
+import oracle.sql.ROWID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,13 +49,14 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
             if (queryChangeDescription.getQueryChangeEventType() == QueryChangeDescription.QueryChangeEventType.QUERYCHANGE) {
                 for (TableChangeDescription tableChangeDescription : queryChangeDescription.getTableChangeDescription()) {
                     if (tableChangeDescription.getTableName().equalsIgnoreCase(config.getTableName())) {
-                        for (RowChangeDescription rowChangeDescription : tableChangeDescription.getRowChangeDescription()) {
-                            if (rowChangeDescription.getRowOperation() == RowChangeDescription.RowOperation.INSERT) {
-                                logger.info("Processing: " + rowChangeDescription.getRowid().stringValue());
-                                try {
-                                    taskManager.queueTask(rowChangeDescription.getRowid());
-                                } catch (OracleDBQueueException e) {
-                                    logger.error("Failure when attempting to QUEUE task: " + e.getCode() + "/" + e.getMessage());
+                        if (tableChangeDescription.getTableOperations().contains(TableChangeDescription.TableOperation.ALL_ROWS)) {
+                            // waking up queue
+                            ctx.getOracleDBQueue().attemptPendingTasksProcessing();
+                        } else {
+                            for (RowChangeDescription rowChangeDescription : tableChangeDescription.getRowChangeDescription()) {
+                                if (rowChangeDescription.getRowOperation() == RowChangeDescription.RowOperation.INSERT) {
+                                    logger.info("Processing: " + rowChangeDescription.getRowid().stringValue());
+                                    ctx.getOracleDBQueue().queueInsertedNotificationTask(rowChangeDescription.getRowid());
                                 }
                             }
                         }
@@ -65,4 +68,5 @@ public class OracleDBQueueListener implements DatabaseChangeListener  {
 
 
     }
+
 }

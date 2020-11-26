@@ -3,6 +3,7 @@ package com.roshka.oracledbqueue.task;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 public interface TaskProcessor {
 
@@ -14,6 +15,6 @@ public interface TaskProcessor {
      * @throws OracleDBQueueException
      */
     TaskResult processTask(Connection conn, TaskData taskData)
-        throws OracleDBQueueException;
+        throws OracleDBQueueException, SQLException;
 
 }

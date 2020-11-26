@@ -15,6 +15,7 @@ import com.roshka.oracledbqueue.util.OracleRegistrationUtil;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.datasource.OracleDataSource;
 import oracle.jdbc.dcn.DatabaseChangeRegistration;
+import oracle.sql.ROWID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +28,6 @@ public class OracleDBQueue implements Runnable {
 
     private static Logger logger = LoggerFactory.getLogger(OracleDBQueue.class);
 
-
     public enum OracleDBQueueStatus {
         CREATED,
         STARTING,
@@ -39,6 +39,8 @@ public class OracleDBQueue implements Runnable {
 
     private OracleDBQueueCtx ctx;
     private TaskProcessor taskProcessor;
+    private Object syncObject;
+    private DataSource queueDataSource;
 
     public OracleDBQueue(OracleDBQueueConfig config) {
         this(config, null);
@@ -46,6 +48,7 @@ public class OracleDBQueue implements Runnable {
 
     public OracleDBQueue(OracleDBQueueConfig config, OracleDataSource dataSource)
     {
+        syncObject = new Object();
         ctx = new OracleDBQueueCtx(this);
         ctx.setConfig(config);
         ctx.setDataSource(dataSource);
@@ -66,9 +69,13 @@ public class OracleDBQueue implements Runnable {
             processPendingTasks();
 
             while(ctx.getStatus() != OracleDBQueueStatus.STOP_REQUESTED && ctx.getStatus() != OracleDBQueueStatus.ENDED) {
-                Thread.sleep(config.getAuxiliaryPollQueueInterval()*1000);
-                // call to run the query manually
-                processPendingTasks();
+                synchronized (syncObject) {
+                    logger.info("Waiting...");
+                    syncObject.wait(config.getAuxiliaryPollQueueInterval()*1000);
+                    logger.info("Woken up or finished waiting...");
+                    // call to run the query manually
+                    processPendingTasks();
+                }
             }
         } catch (InterruptedException e) {
             logger.error("Thread was interrupted, cleaning up and exiting");
@@ -86,12 +93,12 @@ public class OracleDBQueue implements Runnable {
         logger.info("Bye, bye now");
     }
 
-    private void processPendingTasks() {
+    private synchronized void processPendingTasks() {
 
         logger.info("Processing pending TASKS");
 
         final OracleDBQueueConfig config = ctx.getConfig();
-        final DataSource dataSource = ctx.getDataSource();
+        final DataSource dataSource = queueDataSource;
         final TaskManager taskManager = ctx.getTaskManager();
 
         String sql = config.getListenerQuery();
@@ -104,13 +111,15 @@ public class OracleDBQueue implements Runnable {
             logger.debug("Going to run query: " + sql);
             conn = dataSource.getConnection();
             conn.setAutoCommit(false);
-            conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            conn.setReadOnly(true);
             st = conn.createStatement();
             rs = st.executeQuery(sql);
 
             while (rs.next()) {
                 currentRowId = rs.getRowId("rowid");
-                taskManager.processTaskDataInRS(TaskManager.TaskQueueType.QUERY_POLLING_THREAD, conn, rs);
+                TaskData taskData = taskManager.createTaskDataFromRS(TaskManager.TaskQueueType.QUERY_POLLING_THREAD, rs, currentRowId);
+                taskManager.queueTask(taskData);
+                conn.commit();
             }
 
         } catch (SQLException e) {
@@ -147,7 +156,7 @@ public class OracleDBQueue implements Runnable {
             setupTaskManager();
 
             // setup data source if needed
-            setupDataSource();
+            setupDataSources();
 
             // register database change notification
             logger.debug("Getting connection!");
@@ -191,11 +200,11 @@ public class OracleDBQueue implements Runnable {
 
     }
 
-    private void setupDataSource() throws OracleDBQueueException, SQLException {
+    private void setupDataSources() throws OracleDBQueueException, SQLException {
         final OracleDBQueueConfig config = ctx.getConfig();
         logger.info("Analyzing oracle datasource");
         if (ctx.getDataSource() != null) {
-            // do nothing, just run
+            // do nothing, just run and use
         } else {
             logger.info("Setting up OracleDataSource");
             if (config.getDataSourceConfig() == null) {
@@ -205,6 +214,20 @@ public class OracleDBQueue implements Runnable {
             }
             ctx.setDataSource(OracleDataSourceUtil.createPooledDataSource(config.getDataSourceConfig()));
         }
+
+        // setup queue datasource
+        if (config.getDataSourceConfig() == null) {
+            // exception
+            ctx.setStatus(OracleDBQueueStatus.START_FAILURE);
+            throw new OracleDBQueueException(ErrorConstants.ERR_INVALID_DATASOURCE_CONFIGURATION, "DataSource is null and no configuration was supplied");
+        }
+
+
+        final OracleDataSourceConfig dataSourceConfig = new OracleDataSourceConfig(config.getDataSourceConfig());
+        dataSourceConfig.setInitialPoolSize(1);
+        dataSourceConfig.setMaxPoolSize(3);
+        dataSourceConfig.setConnectionPoolName(null);
+        queueDataSource = OracleDataSourceUtil.createPooledDataSource(dataSourceConfig);
 
     }
 
@@ -272,9 +295,45 @@ public class OracleDBQueue implements Runnable {
     }
 
     public TaskResult processTask(Connection conn, TaskData taskData)
-        throws OracleDBQueueException
+        throws OracleDBQueueException, SQLException
     {
         return taskProcessor.processTask(conn, taskData);
+    }
+
+    public void attemptPendingTasksProcessing() {
+        synchronized (syncObject) {
+            syncObject.notify();
+        }
+    }
+
+    public void queueInsertedNotificationTask(ROWID rowid) {
+        final OracleDBQueueConfig config = ctx.getConfig();
+        String sqlGet = String.format("select rowid, xxx.* from %s xxx where rowid = ?", config.getTableName());
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        try {
+            conn = queueDataSource.getConnection();
+            conn.setReadOnly(true);
+            pstmt = conn.prepareStatement(sqlGet);
+            pstmt.setRowId(1, rowid);
+            rs = pstmt.executeQuery();
+            if (rs.next()) {
+                final TaskManager taskManager = ctx.getTaskManager();
+                RowId currentRowId = rs.getRowId("rowid");
+                TaskData taskData = taskManager.createTaskDataFromRS(TaskManager.TaskQueueType.QUERY_CHANGE_NOTIFICATION_EVENT, rs, currentRowId);
+                taskManager.queueTask(taskData);
+            } else {
+                logger.warn("Could not find a row with rowid " + rowid.stringValue());
+            }
+        } catch (SQLException | OracleDBQueueException e) {
+            logger.error("Can't queue task for ROWID " + rowid.stringValue(), e);
+        } finally {
+            OracleDBUtil.closeResultSetIgnoreException(rs);
+            OracleDBUtil.closeStatementIgnoreException(pstmt);
+            OracleDBUtil.closeConnectionIgnoreException(conn);
+        }
+
     }
 
     public static void main(String[] args) throws Exception {
@@ -289,21 +348,16 @@ public class OracleDBQueue implements Runnable {
 
         oracleDBQueue.registerTaskProcessor(new TaskProcessor() {
             @Override
-            public TaskResult processTask(Connection conn, TaskData taskData) throws OracleDBQueueException {
+            public TaskResult processTask(Connection conn, TaskData taskData) throws OracleDBQueueException, SQLException {
                 logger.info("Processing task data: " + taskData.toString());
                 TaskResult taskResult = new TaskResult(taskData.getCurrentStatus());
-
                 String updateSQL = "update MICHI.GE_SNP_MEN_ENVIADOS set cod_msj_swift = cod_msj_swift + 1, fec_proceso = SYSDATE, msj_resultado = ? where rowid = ?";
-                try {
-                    PreparedStatement ps = conn.prepareStatement(updateSQL);
-                    ps.setString(1, taskData.getTaskQueueType().toString());
-                    ps.setRowId(2, taskData.getRowid());
-                    ps.executeUpdate();
-                    taskResult.setNewStatus("OK");
-                } catch (SQLException e) {
-                    taskResult.setNewStatus("ERR");
-                    logger.error("Error on TASK PROCESSOR", e);
-                }
+                PreparedStatement ps = conn.prepareStatement(updateSQL);
+                ps.setString(1, taskData.getTaskQueueType().toString());
+                ps.setRowId(2, taskData.getRowid());
+                ps.executeUpdate();
+                ps.close();
+                taskResult.setNewStatus("OK");
                 return taskResult;
             }
         });

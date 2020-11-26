@@ -30,6 +30,10 @@ public class OracleDBQueueConfig {
     public static final String CONFKEY_STATUS_FIELD = String.format("%s.status_field", CONFKEY_PREFIX);
     private String statusField;
 
+    public static final String DEFAULT_STATUS_VAL_INIT = "S-INIT";
+    public static final String CONFKEY_STATUS_VAL_INIT = String.format("%s.status.init", CONFKEY_PREFIX);
+    private String statusValInit = DEFAULT_STATUS_VAL_INIT;
+
     public static final String DEFAULT_STATUS_VAL_QUEUED = "S-QUEUED";
     public static final String CONFKEY_STATUS_VAL_QUEUED = String.format("%s.status.queued", CONFKEY_PREFIX);
     private String statusValQueued = DEFAULT_STATUS_VAL_QUEUED;
@@ -65,6 +69,7 @@ public class OracleDBQueueConfig {
         oracleDBQueueConfig.setStatusField(props.getProperty(CONFKEY_STATUS_FIELD));
         oracleDBQueueConfig.setStatusValFailed(props.getProperty(CONFKEY_STATUS_VAL_FAILED, DEFAULT_STATUS_VAL_FAILED));
         oracleDBQueueConfig.setStatusValQueued(props.getProperty(CONFKEY_STATUS_VAL_QUEUED, DEFAULT_STATUS_VAL_QUEUED));
+        oracleDBQueueConfig.setStatusValInit(props.getProperty(CONFKEY_STATUS_VAL_INIT, DEFAULT_STATUS_VAL_INIT));
         oracleDBQueueConfig.setQueryChangeNotificationsDisabled(
                 Boolean.valueOf(props.getProperty(CONFKEY_QUERY_CHANGE_NOTIFICATIONS_DISABLED, "false"))
         );
@@ -130,6 +135,14 @@ public class OracleDBQueueConfig {
 
     public void setStatusValQueued(String statusValQueued) {
         this.statusValQueued = statusValQueued;
+    }
+
+    public String getStatusValInit() {
+        return statusValInit;
+    }
+
+    public void setStatusValInit(String statusValInit) {
+        this.statusValInit = statusValInit;
     }
 
     public String getStatusValFailed() {
