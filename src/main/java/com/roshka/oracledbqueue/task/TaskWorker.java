@@ -95,6 +95,7 @@ public class TaskWorker implements Runnable {
                 if (connection != null) {
                     logger.info("ROLLING BACK TRANSACTION NOW");
                     connection.rollback();
+                    ctx.getOracleDBQueue().reRunProcessingTaskImmediately();
                 }
             } catch (SQLException throwables) {
                 logger.error("Can't rollback", e);

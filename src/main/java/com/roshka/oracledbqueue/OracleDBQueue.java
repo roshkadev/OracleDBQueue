@@ -39,8 +39,9 @@ public class OracleDBQueue implements Runnable {
 
     private OracleDBQueueCtx ctx;
     private TaskProcessor taskProcessor;
-    private Object syncObject;
+    private Object syncObject = new Object();
     private DataSource queueDataSource;
+    private boolean reRun = false;
 
     public OracleDBQueue(OracleDBQueueConfig config) {
         this(config, null);
@@ -48,7 +49,6 @@ public class OracleDBQueue implements Runnable {
 
     public OracleDBQueue(OracleDBQueueConfig config, OracleDataSource dataSource)
     {
-        syncObject = new Object();
         ctx = new OracleDBQueueCtx(this);
         ctx.setConfig(config);
         ctx.setDataSource(dataSource);
@@ -69,12 +69,18 @@ public class OracleDBQueue implements Runnable {
             processPendingTasks();
 
             while(ctx.getStatus() != OracleDBQueueStatus.STOP_REQUESTED && ctx.getStatus() != OracleDBQueueStatus.ENDED) {
-                synchronized (syncObject) {
-                    logger.info("Waiting...");
-                    syncObject.wait(config.getAuxiliaryPollQueueInterval()*1000);
-                    logger.info("Woken up or finished waiting...");
-                    // call to run the query manually
+                if (reRun) {
+                    logger.info("RERUNNING IMMEDIATELY on demand");
+                    reRun = false;
                     processPendingTasks();
+                } else {
+                    synchronized (syncObject) {
+                        logger.info("Waiting...");
+                        syncObject.wait(config.getAuxiliaryPollQueueInterval()*1000);
+                        logger.info("Woken up or finished waiting...");
+                        // call to run the query manually
+                        processPendingTasks();
+                    }
                 }
             }
         } catch (InterruptedException e) {
@@ -368,6 +374,11 @@ public class OracleDBQueue implements Runnable {
 
         thread.join();
     }
+
+    public synchronized void reRunProcessingTaskImmediately() {
+        reRun = true;
+    }
+
 
 
 }
