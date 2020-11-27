@@ -3,6 +3,7 @@ package com.roshka.oracledbqueue;
 import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
 import com.roshka.oracledbqueue.config.OracleDataSourceConfig;
 import com.roshka.oracledbqueue.datasource.OracleDataSourceUtil;
+import com.roshka.oracledbqueue.db.DBCommonOperations;
 import com.roshka.oracledbqueue.exception.ErrorConstants;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import com.roshka.oracledbqueue.listener.OracleDBQueueListener;
@@ -88,13 +89,9 @@ public class OracleDBQueue implements Runnable {
         } catch (OracleDBQueueException e) {
             logger.error("OracleDBQueue could not start. Giving up...", e);
         } finally {
-            try {
-                logger.info("Going to STOP");
-                stop();
-                logger.info("STOPPED");
-            } catch (OracleDBQueueException e) {
-                logger.error("Failure while stopping QUEUE", e);
-            }
+            logger.info("Going to STOP");
+            stop();
+            logger.info("STOPPED");
         }
         logger.info("Bye, bye now");
     }
@@ -107,7 +104,7 @@ public class OracleDBQueue implements Runnable {
         final DataSource dataSource = queueDataSource;
         final TaskManager taskManager = ctx.getTaskManager();
 
-        String sql = config.getListenerQuery();
+        String sql = DBCommonOperations.getPendingTasksQuery(config);
         Connection conn = null;
         Statement st = null;
         ResultSet rs = null;
@@ -258,7 +255,14 @@ public class OracleDBQueue implements Runnable {
             prop.setProperty(OracleConnection.NTF_LOCAL_TCP_PORT, String.valueOf(config.getListenerPort()));
         }
 
-        final DatabaseChangeRegistration databaseChangeRegistration = OracleRegistrationUtil.registerDatabaseChange(oracleConnection, oracleDBQueueListener, config.getTableName(), config.getListenerQuery(), prop);
+        final DatabaseChangeRegistration databaseChangeRegistration =
+                OracleRegistrationUtil.registerDatabaseChange(
+                        oracleConnection,
+                        oracleDBQueueListener,
+                        config.getTableName(),
+                        DBCommonOperations.getPendingTasksQuery(config),
+                        prop
+                );
         logger.info(String.format(
                     "Listener STARTED successfully with registration id [%s] Specified Host [%s] Specified Port [%s] - Setting status to RUNNING",
                     databaseChangeRegistration.getRegId(),
@@ -270,7 +274,6 @@ public class OracleDBQueue implements Runnable {
     }
 
     private void stop()
-            throws OracleDBQueueException
     {
         final DatabaseChangeRegistration dcr = ctx.getDcr();
 
@@ -288,6 +291,9 @@ public class OracleDBQueue implements Runnable {
             }
         }
 
+        logger.info("Going to stop task manager");
+        ctx.getTaskManager().stop();
+        logger.info("Task manager STOPPED");
         ctx.setStatus(OracleDBQueueStatus.ENDED);
     }
 
@@ -356,7 +362,7 @@ public class OracleDBQueue implements Runnable {
             public TaskResult processTask(Connection conn, TaskData taskData) {
                 logger.info("Processing task data: " + taskData.toString());
                 TaskResult taskResult = new TaskResult(taskData.getCurrentStatus());
-                String updateSQL = "update MICHI.GE_SNP_MEN_ENVIADOS set cod_msj_swift = cod_msj_swift + 1, fec_proceso = SYSDATE, msj_resultado = ? where rowid = ?";
+                String updateSQL = "update CCP.GE_SNP_MEN_ENVIADOS set cod_msj_swift = cod_msj_swift + 1, fec_proceso = SYSDATE, msj_resultado = ? where rowid = ?";
                 PreparedStatement ps = null;
                 try {
                     ps = conn.prepareStatement(updateSQL);

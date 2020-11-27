@@ -1,6 +1,7 @@
 package com.roshka.oracledbqueue.task;
 
 import com.roshka.oracledbqueue.OracleDBQueueCtx;
+import com.roshka.oracledbqueue.config.OracleDBQueueConfig;
 import com.roshka.oracledbqueue.exception.OracleDBQueueException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,9 +37,24 @@ public class TaskManager {
     }
 
     private void setupExecutor() {
+        final OracleDBQueueConfig config = this.ctx.getConfig();
 
-        executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+        if (config.getThreadPoolType() == OracleDBQueueConfig.ThreadPoolType.CACHED) {
+            logger.info("Using CACHED thread pool executor");
+            executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+        } else if (config.getThreadPoolType() == OracleDBQueueConfig.ThreadPoolType.FIXED) {
+            logger.info("Using FIXED thread pool executor with " + config.getThreadPoolSize() + " size");
+            executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(config.getThreadPoolSize());
+        } else {
+            logger.error("Unhandled executor type found, using default: " + config.getThreadPoolType());
+            executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+        }
 
+    }
+
+    public void stop()
+    {
+        executor.shutdown();
     }
 
     public TaskData createTaskDataFromRS(TaskQueueType taskQueueType, ResultSet rs, RowId rowid)

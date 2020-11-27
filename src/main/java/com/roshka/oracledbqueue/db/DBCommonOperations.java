@@ -29,4 +29,28 @@ public class DBCommonOperations {
         return ret;
     }
 
+    public static final String TABLE_ALIAS = "mk";
+
+    public static String getBaseSQL(OracleDBQueueConfig config) {
+        return String.format(
+                "select rowid, %s.* from %s %s",
+                TABLE_ALIAS,
+                config.getTableName(),
+                TABLE_ALIAS
+        );
+    }
+
+    public static String getInitialStatusWhereClause(OracleDBQueueConfig config) {
+        return String.format(
+                "%s.%s = '%s'",
+                TABLE_ALIAS,
+                config.getStatusField(),
+                config.getStatusValInit()
+        );
+    }
+
+    public static String getPendingTasksQuery(OracleDBQueueConfig config) {
+        return getBaseSQL(config) + " where " + getInitialStatusWhereClause(config);
+    }
+
 }
