@@ -12,9 +12,7 @@ public interface TaskProcessor {
      * @param conn
      * @param taskData
      * @return
-     * @throws OracleDBQueueException
      */
-    TaskResult processTask(Connection conn, TaskData taskData)
-        throws OracleDBQueueException, SQLException;
+    TaskResult processTask(Connection conn, TaskData taskData);
 
 }

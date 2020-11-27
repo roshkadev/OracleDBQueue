@@ -301,7 +301,6 @@ public class OracleDBQueue implements Runnable {
     }
 
     public TaskResult processTask(Connection conn, TaskData taskData)
-        throws OracleDBQueueException, SQLException
     {
         return taskProcessor.processTask(conn, taskData);
     }
@@ -354,16 +353,22 @@ public class OracleDBQueue implements Runnable {
 
         oracleDBQueue.registerTaskProcessor(new TaskProcessor() {
             @Override
-            public TaskResult processTask(Connection conn, TaskData taskData) throws OracleDBQueueException, SQLException {
+            public TaskResult processTask(Connection conn, TaskData taskData) {
                 logger.info("Processing task data: " + taskData.toString());
                 TaskResult taskResult = new TaskResult(taskData.getCurrentStatus());
                 String updateSQL = "update MICHI.GE_SNP_MEN_ENVIADOS set cod_msj_swift = cod_msj_swift + 1, fec_proceso = SYSDATE, msj_resultado = ? where rowid = ?";
-                PreparedStatement ps = conn.prepareStatement(updateSQL);
-                ps.setString(1, taskData.getTaskQueueType().toString());
-                ps.setRowId(2, taskData.getRowid());
-                ps.executeUpdate();
-                ps.close();
-                taskResult.setNewStatus("OK");
+                PreparedStatement ps = null;
+                try {
+                    ps = conn.prepareStatement(updateSQL);
+                    ps.setString(1, taskData.getTaskQueueType().toString());
+                    ps.setRowId(2, taskData.getRowid());
+                    ps.executeUpdate();
+                    ps.close();
+                    taskResult.setNewStatus("OK");
+                    return taskResult;
+                } catch (SQLException e) {
+                    logger.error("Error while processing task for rowid: " + taskData.getRowid() + " - " + e.getMessage());
+                }
                 return taskResult;
             }
         });
