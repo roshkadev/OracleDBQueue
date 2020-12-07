@@ -53,4 +53,7 @@ public class DBCommonOperations {
         return getBaseSQL(config) + " where " + getInitialStatusWhereClause(config);
     }
 
+    public static String addSafetyTimeBufferCondition(OracleDBQueueConfig config) {
+        return String.format(" and 24*60*60*(sysdate - %s.%s) > %d ", TABLE_ALIAS, config.getCreatedField(), config.getSafetyTimeBuffer());
+    }
 }

@@ -2,12 +2,14 @@ package com.roshka.oracledbqueue.config;
 
 import com.roshka.oracledbqueue.util.PropertiesUtil;
 import oracle.jdbc.OracleConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.Properties;
 
 public class OracleDBQueueConfig {
 
+    private static Logger logger = LoggerFactory.getLogger(OracleDBQueueConfig.class);
 
     public static final String CONFKEY_PREFIX = "odbq";
 
@@ -46,6 +48,9 @@ public class OracleDBQueueConfig {
     public static final String CONFKEY_STATUS_FIELD = String.format("%s.status_field", CONFKEY_PREFIX);
     private String statusField;
 
+    public static final String CONFKEY_CREATED_FIELD = String.format("%s.created_field", CONFKEY_PREFIX);
+    private String createdField;
+
     public static final String DEFAULT_STATUS_VAL_INIT = "S-INIT";
     public static final String CONFKEY_STATUS_VAL_INIT = String.format("%s.status.init", CONFKEY_PREFIX);
     private String statusValInit = DEFAULT_STATUS_VAL_INIT;
@@ -62,6 +67,11 @@ public class OracleDBQueueConfig {
     public static final int DEFAULT_AUXILIARY_POLL_QUEUE_INTERVAL = 10;
     private int auxiliaryPollQueueInterval = DEFAULT_AUXILIARY_POLL_QUEUE_INTERVAL;
 
+    public static final String CONFKEY_SAFETY_TIME_BUFFER = String.format("%s.safety_time_buffer", CONFKEY_PREFIX);
+    public static final int DEFAULT_SAFETY_TIME_BUFFER = 0;
+    private int safetyTimeBuffer = DEFAULT_SAFETY_TIME_BUFFER;
+
+
     public OracleDataSourceConfig getDataSourceConfig() {
         return dataSourceConfig;
     }
@@ -75,6 +85,7 @@ public class OracleDBQueueConfig {
         // data structures
         oracleDBQueueConfig.setTableName(props.getProperty(CONFKEY_TABLE_NAME));
         oracleDBQueueConfig.setStatusField(props.getProperty(CONFKEY_STATUS_FIELD));
+        oracleDBQueueConfig.setCreatedField(props.getProperty(CONFKEY_CREATED_FIELD));
         oracleDBQueueConfig.setStatusValFailed(props.getProperty(CONFKEY_STATUS_VAL_FAILED, DEFAULT_STATUS_VAL_FAILED));
         oracleDBQueueConfig.setStatusValQueued(props.getProperty(CONFKEY_STATUS_VAL_QUEUED, DEFAULT_STATUS_VAL_QUEUED));
         oracleDBQueueConfig.setStatusValInit(props.getProperty(CONFKEY_STATUS_VAL_INIT, DEFAULT_STATUS_VAL_INIT));
@@ -112,8 +123,21 @@ public class OracleDBQueueConfig {
         oracleDBQueueConfig.setThreadPoolSize(
                 PropertiesUtil.getIntegerProperty(props, CONFKEY_THREAD_POOL_SIZE, DEFAULT_THREAD_POOL_SIZE)
         );
+        oracleDBQueueConfig.setSafetyTimeBuffer(
+                PropertiesUtil.getIntegerProperty(props, CONFKEY_SAFETY_TIME_BUFFER, DEFAULT_SAFETY_TIME_BUFFER)
+        );
+
+        // issue warning messages in case of some missonfigurations
+
+        printWarningConfigurations(oracleDBQueueConfig);
 
         return oracleDBQueueConfig;
+    }
+
+    private static void printWarningConfigurations(OracleDBQueueConfig oracleDBQueueConfig) {
+        if (oracleDBQueueConfig.getSafetyTimeBuffer() > 0 && oracleDBQueueConfig.getCreatedField() == null) {
+            logger.warn("You must specify a CREATED FIELD if you want to use the security time buffer. This option will be ignored");
+        }
     }
 
     public String getTableName() {
@@ -220,5 +244,21 @@ public class OracleDBQueueConfig {
 
     public void setThreadPoolSize(int threadPoolSize) {
         this.threadPoolSize = threadPoolSize;
+    }
+
+    public String getCreatedField() {
+        return createdField;
+    }
+
+    public void setCreatedField(String createdField) {
+        this.createdField = createdField;
+    }
+
+    public int getSafetyTimeBuffer() {
+        return safetyTimeBuffer;
+    }
+
+    public void setSafetyTimeBuffer(int safetyTimeBuffer) {
+        this.safetyTimeBuffer = safetyTimeBuffer;
     }
 }

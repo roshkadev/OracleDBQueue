@@ -96,6 +96,7 @@ public class OracleDBQueue implements Runnable {
         logger.info("Bye, bye now");
     }
 
+
     private synchronized void processPendingTasks() {
 
         logger.info("Processing pending TASKS");
@@ -105,6 +106,11 @@ public class OracleDBQueue implements Runnable {
         final TaskManager taskManager = ctx.getTaskManager();
 
         String sql = DBCommonOperations.getPendingTasksQuery(config);
+
+        if (config.getSafetyTimeBuffer() > 0 && config.getCreatedField() != null) {
+            sql += DBCommonOperations.addSafetyTimeBufferCondition(config);
+        }
+
         Connection conn = null;
         Statement st = null;
         ResultSet rs = null;
